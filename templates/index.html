@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Framework de Segurança - Analisador de Arquivos</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>🛡️ Framework de Segurança</h1>
+      <p class="subtitle">
+        Envie um arquivo para análise contra múltiplos serviços de detecção de malware.
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Scanners ativos</h2>
+      <ul class="scanner-list">
+        <li class="{{ 'on' if scanners.local else 'off' }}">
+          <span class="dot"></span> Análise Local (hash + heurísticas)
+        </li>
+        <li class="{{ 'on' if scanners.virustotal else 'off' }}">
+          <span class="dot"></span> VirusTotal
+          {% if not scanners.virustotal %}<small>— defina VIRUSTOTAL_API_KEY no .env</small>{% endif %}
+        </li>
+        <li class="{{ 'on' if scanners.metadefender else 'off' }}">
+          <span class="dot"></span> MetaDefender (OPSWAT)
+          {% if not scanners.metadefender %}<small>— defina METADEFENDER_API_KEY no .env</small>{% endif %}
+        </li>
+        <li class="{{ 'on' if scanners.hybrid_analysis else 'off' }}">
+          <span class="dot"></span> Hybrid Analysis
+          {% if not scanners.hybrid_analysis %}<small>— defina HYBRID_ANALYSIS_API_KEY no .env</small>{% endif %}
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <form action="/scan" method="post" enctype="multipart/form-data">
+        <label for="file" class="filelabel">
+          <strong>Selecione um arquivo</strong>
+          <small>Tamanho máximo: {{ max_size_mb }} MB</small>
+        </label>
+        <input type="file" id="file" name="file" required />
+        <button type="submit">Analisar</button>
+      </form>
+    </section>
+
+    <footer>
+      <small>
+        Use também o endpoint JSON: <code>POST /api/scan</code> (multipart com campo <code>file</code>).
+      </small>
+    </footer>
+  </main>
+</body>
+</html>
