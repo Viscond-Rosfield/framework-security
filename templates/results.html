@@ -2,21 +2,30 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório - {{ report.file.name }}</title>
+  <title>Relatorio - {{ report.file.name }}</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="container">
-    <header>
-      <h1>📋 Relatório de Análise</h1>
-      <p><a href="/">← Analisar outro arquivo</a></p>
+    <header class="topbar">
+      <h1>📋 Relatorio de Analise</h1>
+      <nav>
+        <a href="/">Analisar</a>
+        <a href="/history">Historico</a>
+      </nav>
     </header>
 
-    {# ------- Veredito ------- #}
+    {% if report._cached %}
+      <section class="card cached-banner">
+        ⚡ Resultado vindo do <strong>cache</strong> (analisado em {{ report._cached_at }}).
+        Para forçar nova analise, volte e marque "Forcar nova analise".
+      </section>
+    {% endif %}
+
     <section class="card verdict verdict-{{ report.verdict.level }}">
       <h2>Veredito: {{ report.verdict.level|upper }}</h2>
       <p>
-        <strong>{{ report.verdict.total_detections }}</strong> detecção(ões)
+        <strong>{{ report.verdict.total_detections }}</strong> deteccao(oes)
         em <strong>{{ report.verdict.total_engines }}</strong> engines consultadas.
       </p>
       {% if report.verdict.flagged_by %}
@@ -27,7 +36,6 @@
       {% endif %}
     </section>
 
-    {# ------- Metadados do arquivo ------- #}
     <section class="card">
       <h2>Arquivo</h2>
       <table class="meta">
@@ -39,7 +47,6 @@
       </table>
     </section>
 
-    {# ------- Resultados por scanner ------- #}
     {% for name, data in report.results.items() %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
@@ -52,11 +59,11 @@
 
         {% else %}
           {% if data.found is defined and not data.found %}
-            <p class="muted">{{ data.message or 'Hash não encontrado.' }}</p>
+            <p class="muted">{{ data.message or 'Hash nao encontrado.' }}</p>
           {% endif %}
 
           <ul class="kv">
-            {% if data.detections is defined %}<li><strong>Detecções:</strong> {{ data.detections }}</li>{% endif %}
+            {% if data.detections is defined %}<li><strong>Deteccoes:</strong> {{ data.detections }}</li>{% endif %}
             {% if data.suspicious is defined and data.suspicious %}<li><strong>Suspeitos:</strong> {{ data.suspicious }}</li>{% endif %}
             {% if data.engines is defined %}<li><strong>Engines:</strong> {{ data.engines }}</li>{% endif %}
             {% if data.verdict %}<li><strong>Veredito:</strong> {{ data.verdict }}</li>{% endif %}
@@ -64,18 +71,18 @@
             {% if data.threat_level is defined and data.threat_level is not none %}<li><strong>Threat level:</strong> {{ data.threat_level }}</li>{% endif %}
             {% if data.file_type %}<li><strong>Tipo:</strong> {{ data.file_type }}</li>{% endif %}
             {% if data.type_description %}<li><strong>Tipo (VT):</strong> {{ data.type_description }}</li>{% endif %}
-            {% if data.reputation is defined %}<li><strong>Reputação:</strong> {{ data.reputation }}</li>{% endif %}
+            {% if data.reputation is defined %}<li><strong>Reputacao:</strong> {{ data.reputation }}</li>{% endif %}
           </ul>
 
           {% if data.flags %}
-            <p><strong>Sinalizações:</strong></p>
+            <p><strong>Sinalizacoes:</strong></p>
             <ul>
               {% for f in data.flags %}<li>{{ f }}</li>{% endfor %}
             </ul>
           {% endif %}
 
           {% if data.permalink %}
-            <p><a href="{{ data.permalink }}" target="_blank" rel="noopener">Ver relatório completo →</a></p>
+            <p><a href="{{ data.permalink }}" target="_blank" rel="noopener">Ver relatorio completo &rarr;</a></p>
           {% endif %}
         {% endif %}
       </section>

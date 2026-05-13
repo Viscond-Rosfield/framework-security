@@ -184,4 +184,3 @@ git push
 - Arquivos são salvos com nome único (UUID) e **deletados imediatamente após a análise**.
 - Limite de tamanho configurável via `MAX_FILE_SIZE_MB`.
 - Para uso em produção, considere rodar atrás de um proxy reverso (nginx) com TLS e isolar a pasta de uploads em um diretório com permissões restritas.
-# framework-security

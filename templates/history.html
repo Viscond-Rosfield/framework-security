@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Historico - Framework de Seguranca</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <h1>📋 Historico de Analises</h1>
+      <nav>
+        <a href="/">Analisar</a>
+        <a href="/history" class="active">Historico</a>
+      </nav>
+    </header>
+
+    {% if stats and stats.total > 0 %}
+      <section class="card stats">
+        <div><strong>{{ stats.total }}</strong><span>analises</span></div>
+        <div><strong>{{ stats.unique_files }}</strong><span>arquivos unicos</span></div>
+        <div class="bad"><strong>{{ stats.malicious }}</strong><span>maliciosos</span></div>
+        <div class="warn"><strong>{{ stats.suspicious }}</strong><span>suspeitos</span></div>
+        <div class="ok"><strong>{{ stats.clean }}</strong><span>limpos</span></div>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <form method="get" action="/history" class="search-form">
+        <input type="text" name="q" placeholder="Buscar por nome ou hash..." value="{{ q }}" />
+        <button type="submit">Buscar</button>
+        {% if q %}<a href="/history" class="muted">limpar</a>{% endif %}
+      </form>
+    </section>
+
+    {% if rows %}
+      <section class="card">
+        <table class="history">
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Arquivo</th>
+              <th>Tamanho</th>
+              <th>Veredito</th>
+              <th>Det/Eng</th>
+              <th>Por</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr class="row-{{ r.verdict_level }}">
+                <td><small>{{ r.created_at }}</small></td>
+                <td>
+                  {{ r.original_name }}
+                  <br/><code class="hash">{{ r.sha256[:16] }}...</code>
+                </td>
+                <td>{{ (r.size_bytes / 1024) | round(1) }} KB</td>
+                <td><span class="verdict-pill verdict-{{ r.verdict_level }}">{{ r.verdict_level }}</span></td>
+                <td>{{ r.total_detections }}/{{ r.total_engines }}</td>
+                <td>{{ r.scanned_by or '—' }}</td>
+                <td><a href="/history/{{ r.id }}">ver</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% else %}
+      <section class="card">
+        <p class="muted">
+          {% if q %}Nenhum resultado para "{{ q }}".{% else %}Nenhuma analise registrada ainda. <a href="/">Faca a primeira</a>.{% endif %}
+        </p>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>

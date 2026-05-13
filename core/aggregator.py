@@ -1,33 +1,50 @@
 """
 Agregador de resultados.
-Executa todos os scanners em paralelo e consolida o veredito final.
+Executa todos os scanners em paralelo, agora com camada de cache no banco.
 """
+from __future__ import annotations
+
 import asyncio
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Optional
 
 from scanners.virustotal import scan_virustotal
 from scanners.metadefender import scan_metadefender
 from scanners.hybrid_analysis import scan_hybrid_analysis
 from scanners.local_scanner import scan_local
 from core.hasher import compute_hashes, file_size
+from core import database
 import config
 
 
-async def scan_file(file_path: str | Path, original_name: str) -> Dict[str, Any]:
+async def scan_file(
+    file_path: str | Path,
+    original_name: str,
+    scanned_by: Optional[str] = None,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
     """
-    Executa todos os scanners disponíveis sobre o arquivo e devolve um relatório
-    consolidado contendo metadados, resultados individuais e veredito final.
+    Pipeline completo:
+      1. calcula hash
+      2. tenta retornar resultado do cache (se valido e nao for force_refresh)
+      3. roda scanners em paralelo
+      4. calcula veredito consolidado
+      5. salva no banco
     """
     file_path = Path(file_path)
     hashes = compute_hashes(file_path)
     size = file_size(file_path)
 
-    # Dispara scanners habilitados em paralelo
+    # 1) Tenta cache antes de gastar APIs
+    if not force_refresh:
+        cached = await database.get_cached(hashes["sha256"])
+        if cached is not None:
+            return cached
+
+    # 2) Dispara scanners habilitados em paralelo
     tasks = []
     labels = []
 
-    # Local sempre roda
     tasks.append(scan_local(file_path, hashes))
     labels.append("local")
 
@@ -45,7 +62,7 @@ async def scan_file(file_path: str | Path, original_name: str) -> Dict[str, Any]
 
     results_list = await asyncio.gather(*tasks, return_exceptions=True)
 
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
     for label, res in zip(labels, results_list):
         if isinstance(res, Exception):
             results[label] = {"status": "error", "error": str(res)}
@@ -54,7 +71,7 @@ async def scan_file(file_path: str | Path, original_name: str) -> Dict[str, Any]
 
     verdict = compute_verdict(results)
 
-    return {
+    report = {
         "file": {
             "name": original_name,
             "size_bytes": size,
@@ -63,24 +80,32 @@ async def scan_file(file_path: str | Path, original_name: str) -> Dict[str, Any]
         },
         "results": results,
         "verdict": verdict,
+        "_cached": False,
     }
 
+    # 3) Persiste pra cache + historico
+    try:
+        await database.save_scan(report, scanned_by=scanned_by)
+    except Exception as e:
+        # nao quebrar a request se o banco falhar; so logar
+        report["_db_error"] = str(e)
 
-def compute_verdict(results: Dict[str, Any]) -> Dict[str, Any]:
+    return report
+
+
+def compute_verdict(results: dict[str, Any]) -> dict[str, Any]:
     """
-    Consolida um veredito final a partir dos resultados de cada scanner.
-    Regras simples: se qualquer scanner reportou >=1 detecção -> 'malicious';
-    se houve apenas suspeito -> 'suspicious'; senão 'clean'.
+    Consolida veredito final.
+    Regras: 1+ deteccoes -> malicious; so suspeitos -> suspicious; nada -> clean.
     """
     total_detections = 0
     total_engines = 0
-    flagged_by: List[str] = []
-    suspicious_by: List[str] = []
+    flagged_by: list[str] = []
+    suspicious_by: list[str] = []
 
     for name, data in results.items():
         if not isinstance(data, dict) or data.get("status") != "ok":
             continue
-
         detections = int(data.get("detections", 0) or 0)
         engines = int(data.get("engines", 0) or 0)
         suspicious = int(data.get("suspicious", 0) or 0)
@@ -110,8 +135,9 @@ def compute_verdict(results: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _human_size(num_bytes: int) -> str:
+    size = float(num_bytes)
     for unit in ["B", "KB", "MB", "GB"]:
-        if num_bytes < 1024:
-            return f"{num_bytes:.1f} {unit}"
-        num_bytes /= 1024
-    return f"{num_bytes:.1f} TB"
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"

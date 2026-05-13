@@ -166,3 +166,153 @@ footer {
   margin-top: 2rem;
   color: #94a3b8;
 }
+
+/* ================ ADICIONADO v0.2 - Cache + Historico ================ */
+
+/* Top bar com navegacao */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.topbar h1 {
+  margin: 0;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.topbar nav a {
+  color: #94a3b8;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+}
+
+.topbar nav a:hover,
+.topbar nav a.active {
+  background: #1e293b;
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+/* Stats grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.stats > div {
+  padding: 0.6rem;
+}
+
+.stats strong {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.stats span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.stats .bad strong   { color: #f87171; }
+.stats .warn strong  { color: #fbbf24; }
+.stats .ok strong    { color: #4ade80; }
+
+/* Banner de cache */
+.cached-banner {
+  background: #0c4a6e;
+  border: 1px solid #0ea5e9;
+  color: #e0f2fe;
+}
+
+/* Form de busca */
+.search-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-direction: row;
+}
+
+.search-form input[type=text] {
+  flex: 1;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Checkbox de force refresh */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.checkbox input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+/* Tabela de historico */
+table.history {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table.history th,
+table.history td {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid #334155;
+  vertical-align: top;
+}
+
+table.history th {
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+table.history tr:hover {
+  background: #0f172a;
+}
+
+.hash {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* Pílulas de veredito */
+.verdict-pill {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.verdict-pill.verdict-clean      { background: #14532d; color: #4ade80; }
+.verdict-pill.verdict-suspicious { background: #78350f; color: #fbbf24; }
+.verdict-pill.verdict-malicious  { background: #7f1d1d; color: #f87171; }
+
+.row-malicious  td:nth-child(2) { border-left: 3px solid #ef4444; padding-left: 0.7rem; }
+.row-suspicious td:nth-child(2) { border-left: 3px solid #f59e0b; padding-left: 0.7rem; }
+.row-clean      td:nth-child(2) { border-left: 3px solid #22c55e; padding-left: 0.7rem; }
