@@ -89,6 +89,46 @@
       </section>
     {% endif %}
 
+        {# ============ DISASSEMBLY (Capstone) ============ #}
+    {% set dis = report.results.get('static_disasm') %}
+    {% if dis and dis.status == 'ok' and dis.found %}
+      <section class="card static-analysis">
+        <h2>⚙️ Disassembly do entry point</h2>
+        <p class="muted">
+          Primeiras {{ dis.instructions_count }} instruções desmontadas via Capstone
+          ({{ dis.architecture }} @ <code>{{ dis.entry_point }}</code>).
+        </p>
+        <p class="summary"><strong>{{ dis._summary }}</strong></p>
+
+        {% if dis.patterns %}
+          <div class="capabilities">
+            {% for p in dis.patterns %}
+              <details class="cap cap-{{ p.severity }}">
+                <summary>
+                  <span class="cap-badge">{{ p.severity|upper }}</span>
+                  <span class="cap-label">{{ p.label }}</span>
+                </summary>
+                <div class="cap-body">
+                  <p>{{ p.description }}</p>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <details class="tech-details">
+          <summary>📐 Mostrar instruções ASM</summary>
+          <div class="tech-body">
+            <pre class="asm-listing">{% for i in dis.instructions[:64] %}<span class="asm-addr">{{ '0x%x' % i.address }}</span>  <span class="asm-bytes">{{ i.bytes }}</span>  <span class="asm-mnemonic">{{ i.mnemonic }}</span> <span class="asm-op">{{ i.op_str }}</span>
+{% endfor %}</pre>
+            {% if dis.instructions|length > 64 %}
+              <p class="muted">... + {{ dis.instructions|length - 64 }} instruções (truncado pra UI)</p>
+            {% endif %}
+          </div>
+        </details>
+      </section>
+    {% endif %}
+
         {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
     {% set pe = report.results.get('static_pe') %}
     {% if pe and pe.status == 'ok' %}
@@ -435,7 +475,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
