@@ -21,7 +21,7 @@ async def scan_hybrid_analysis(sha256: str) -> dict:
     data = {"hash": sha256}
 
     try:
-        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT, follow_redirects=True) as client:
             resp = await client.post(HA_API_URL, headers=headers, data=data)
     except httpx.RequestError as e:
         return {"status": "error", "error": f"Request failed: {e}"}

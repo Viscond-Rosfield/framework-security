@@ -17,7 +17,7 @@ async def scan_virustotal(sha256: str) -> dict:
     url = VT_API_URL.format(sha256=sha256)
 
     try:
-        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT, follow_redirects=True) as client:
             resp = await client.get(url, headers=headers)
     except httpx.RequestError as e:
         return {"status": "error", "error": f"Request failed: {e}"}
