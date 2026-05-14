@@ -129,7 +129,89 @@
       </section>
     {% endif %}
 
-        {# ============ EMBEDDED FILES (Binwalk-style) ============ #}
+        {# ============ STATIC ANALYSIS - MACH-O (macOS) ============ #}
+    {% set macho = report.results.get('static_macho') %}
+    {% if macho and macho.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>🍎 Análise do binário Mach-O (macOS)</h2>
+        <p class="muted">Estrutura interna do Mach-O — sem executar.</p>
+        <p class="summary"><strong>{{ macho._summary }}</strong></p>
+
+        <table class="meta">
+          <tr><th>Tipo</th><td>{{ macho.file_type }}</td></tr>
+          <tr><th>Arquitetura</th><td>{{ macho.architecture }} ({{ macho.bits }})</td></tr>
+          {% if macho.is_universal %}<tr><th>Universal binary</th><td>✅ Sim ({{ macho.fat_archs|length }} archs)</td></tr>{% endif %}
+          <tr><th>Code signed</th><td>{{ "✅ Sim" if macho.is_signed else "❌ Não" }}</td></tr>
+          <tr><th>PIE (ASLR)</th><td>{{ "✅ Sim" if macho.has_pie else "❌ Não" }}</td></tr>
+          {% if macho.is_encrypted %}<tr><th>Encriptado</th><td>⚠️ Sim</td></tr>{% endif %}
+          <tr><th>Load commands</th><td>{{ macho.ncmds }}</td></tr>
+          <tr><th>Imports</th><td>{{ macho.imports_count }} symbols</td></tr>
+        </table>
+
+        {% if macho.flags %}
+          <ul>{% for f in macho.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        {% if macho.capabilities %}
+          <div class="capabilities">
+            {% for c in macho.capabilities %}
+              <details class="cap cap-{{ c.severity }}">
+                <summary>
+                  <span class="cap-badge">{{ c.severity|upper }}</span>
+                  <span class="cap-label">{{ c.label }}</span>
+                  <span class="cap-count">{{ c.match_count }} symbol(s)</span>
+                </summary>
+                <div class="cap-body">
+                  <p>{{ c.description }}</p>
+                  <ul class="func-list">
+                    {% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}
+                  </ul>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <details class="tech-details">
+          <summary>📐 Detalhes técnicos do Mach-O</summary>
+          <div class="tech-body">
+            <h4>Dylibs necessárias ({{ macho.needed_dylibs|length }})</h4>
+            <ul class="func-list">
+              {% for d in macho.needed_dylibs %}<li><code>{{ d }}</code></li>{% endfor %}
+            </ul>
+
+            {% if macho.rpaths %}
+              <h4>RPATH ({{ macho.rpaths|length }})</h4>
+              <ul>{% for r in macho.rpaths %}<li class="error"><code>{{ r }}</code></li>{% endfor %}</ul>
+            {% endif %}
+
+            {% if macho.segments %}
+              <h4>Segmentos ({{ macho.segments|length }})</h4>
+              <table class="sections">
+                <thead><tr><th>Nome</th><th>VM Addr</th><th>VM Size</th><th>Init Prot</th></tr></thead>
+                <tbody>
+                  {% for s in macho.segments %}
+                    <tr>
+                      <td><code>{{ s.name }}</code></td>
+                      <td><code>0x{{ '%x' % s.vmaddr }}</code></td>
+                      <td>{{ s.vmsize }}</td>
+                      <td><code>{{ '%x' % s.initprot }}</code></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endif %}
+
+            {% if macho.is_universal %}
+              <h4>Architectures no Fat binary</h4>
+              <ul>{% for a in macho.fat_archs %}<li><code>{{ a.cputype }}</code> — offset 0x{{ '%x' % a.offset }}, size {{ a.size }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+        </details>
+      </section>
+    {% endif %}
+
+            {# ============ EMBEDDED FILES (Binwalk-style) ============ #}
     {% set emb = report.results.get('static_embedded') %}
     {% if emb and emb.status == 'ok' and emb.embedded_count > 0 %}
       <section class="card static-analysis">
@@ -506,7 +588,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm', 'static_embedded') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm', 'static_embedded', 'static_macho') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
