@@ -4,7 +4,7 @@
 
 **Meta-aggregator open-source para analise de malware.**
 
-Combine VirusTotal, MetaDefender, Hybrid Analysis e analise local em uma unica interface.
+Combine VirusTotal, MetaDefender e analise local em uma unica interface.
 Self-hospede, traga sua propria API key e tenha controle total.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -19,8 +19,8 @@ Self-hospede, traga sua propria API key e tenha controle total.
 
 ## Por que ThreatLens?
 
-Analistas de seguranca perdem tempo abrindo VirusTotal, MetaDefender e
-Hybrid Analysis um por um, copiando hashes, comparando vereditos. ThreatLens
+Analistas de seguranca perdem tempo abrindo VirusTotal e MetaDefender
+um por um, copiando hashes, comparando vereditos. ThreatLens
 faz isso em uma so interface, com cache, historico e API para integracao.
 
 - 🔒 **Privacidade primeiro** — arquivos sao deletados imediatamente apos analise
@@ -38,7 +38,6 @@ faz isso em uma so interface, com cache, historico e API para integracao.
 | Scanner local (hash conhecido, EICAR, magic bytes, double extension) | ✅ |
 | Integracao com VirusTotal | ✅ |
 | Integracao com MetaDefender (OPSWAT) | ✅ |
-| Integracao com Hybrid Analysis | ✅ |
 | Cache SQLite (TTL configuravel) | ✅ |
 | Historico com busca | ✅ |
 | HTTP Basic Auth | ✅ |
@@ -100,7 +99,6 @@ uvicorn app:app --reload
 | `APP_PASSWORD` | _(vazio)_ | **OBRIGATORIO em producao**. Vazio = auth desabilitada |
 | `VIRUSTOTAL_API_KEY` | _(vazio)_ | https://www.virustotal.com/gui/my-apikey |
 | `METADEFENDER_API_KEY` | _(vazio)_ | https://metadefender.opswat.com/account |
-| `HYBRID_ANALYSIS_API_KEY` | _(vazio)_ | https://www.hybrid-analysis.com/my-account?tab=%2Fapi-keys |
 | `MAX_FILE_SIZE_MB` | `32` | Tamanho maximo de upload |
 | `DATABASE_PATH` | `data/scans.db` | Caminho do SQLite (cache + historico) |
 | `CACHE_TTL_HOURS` | `24` | Tempo de validade do cache (0 desabilita) |
@@ -147,7 +145,6 @@ Resposta:
 Upload -> hash SHA256 -> cache hit? -> [SIM] retorna do banco
                                     -> [NAO] -> [VirusTotal API]
                                               -> [MetaDefender API]  (paralelo)
-                                              -> [Hybrid Analysis API]
                                               -> [Scanner local]
                                     -> agrega resultados
                                     -> calcula veredito
@@ -177,7 +174,10 @@ threatlens/
 │   ├── local_scanner.py   # Heuristicas offline
 │   ├── virustotal.py
 │   ├── metadefender.py
-│   └── hybrid_analysis.py
+│   ├── static_pe.py
+│   ├── static_pdf.py
+│   ├── static_office.py
+│   └── static_elf.py
 ├── templates/             # Jinja2 (web UI)
 ├── static/                # CSS
 ├── Dockerfile
@@ -236,7 +236,6 @@ Construido sobre o trabalho excelente de:
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [VirusTotal API](https://docs.virustotal.com/)
 - [OPSWAT MetaDefender](https://docs.opswat.com/mdcloud)
-- [Hybrid Analysis](https://www.hybrid-analysis.com/docs/api/v2)
 - O padrao [EICAR](https://www.eicar.org/) de teste antivirus
 
 ---

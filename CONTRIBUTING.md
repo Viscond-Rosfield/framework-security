@@ -101,7 +101,10 @@ threatlens/
 │   ├── local_scanner.py   # Heuristicas offline
 │   ├── virustotal.py
 │   ├── metadefender.py
-│   └── hybrid_analysis.py
+│   ├── static_pe.py
+│   ├── static_pdf.py
+│   ├── static_office.py
+│   └── static_elf.py
 ├── templates/             # Jinja2 HTML
 ├── static/                # CSS
 └── Dockerfile             # Build self-host

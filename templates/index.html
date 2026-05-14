@@ -43,10 +43,6 @@
           <span class="dot"></span> MetaDefender (OPSWAT)
           {% if not scanners.metadefender %}<small>— defina METADEFENDER_API_KEY no .env</small>{% endif %}
         </li>
-        <li class="{{ 'on' if scanners.hybrid_analysis else 'off' }}">
-          <span class="dot"></span> Hybrid Analysis
-          {% if not scanners.hybrid_analysis %}<small>— defina HYBRID_ANALYSIS_API_KEY no .env</small>{% endif %}
-        </li>
       </ul>
       {% if cache_ttl_hours > 0 %}
         <p class="muted">

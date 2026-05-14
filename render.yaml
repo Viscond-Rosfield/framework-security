@@ -32,8 +32,6 @@ services:
         sync: false
       - key: METADEFENDER_API_KEY
         sync: false
-      - key: HYBRID_ANALYSIS_API_KEY
-        sync: false
 
       # ---- Configurações gerais ----
       - key: MAX_FILE_SIZE_MB

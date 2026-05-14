@@ -16,7 +16,6 @@ load_dotenv(BASE_DIR / ".env")
 # ---------------------------------------------------------------------------
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "").strip()
 METADEFENDER_API_KEY = os.getenv("METADEFENDER_API_KEY", "").strip()
-HYBRID_ANALYSIS_API_KEY = os.getenv("HYBRID_ANALYSIS_API_KEY", "").strip()
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +69,5 @@ def scanner_status() -> dict:
     return {
         "virustotal": bool(VIRUSTOTAL_API_KEY),
         "metadefender": bool(METADEFENDER_API_KEY),
-        "hybrid_analysis": bool(HYBRID_ANALYSIS_API_KEY),
         "local": True,
     }

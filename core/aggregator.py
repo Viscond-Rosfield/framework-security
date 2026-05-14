@@ -10,7 +10,6 @@ from typing import Any, Optional
 
 from scanners.virustotal import scan_virustotal
 from scanners.metadefender import scan_metadefender
-from scanners.hybrid_analysis import scan_hybrid_analysis
 from scanners.local_scanner import scan_local
 from scanners.static_pe import scan_static_pe
 from scanners.static_pdf import scan_static_pdf
@@ -69,9 +68,6 @@ async def scan_file(
         tasks.append(scan_metadefender(hashes["sha256"]))
         labels.append("metadefender")
 
-    if config.HYBRID_ANALYSIS_API_KEY:
-        tasks.append(scan_hybrid_analysis(hashes["sha256"]))
-        labels.append("hybrid_analysis")
 
     results_list = await asyncio.gather(*tasks, return_exceptions=True)
 
