@@ -1,6 +1,6 @@
 """
 Agregador de resultados.
-Executa todos os scanners em paralelo, agora com camada de cache no banco.
+Executa todos os scanners em paralelo, com camada de cache no banco.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from scanners.virustotal import scan_virustotal
 from scanners.metadefender import scan_metadefender
 from scanners.hybrid_analysis import scan_hybrid_analysis
 from scanners.local_scanner import scan_local
+from scanners.static_pe import scan_static_pe
 from core.hasher import compute_hashes, file_size
 from core import database
 import config
@@ -27,7 +28,7 @@ async def scan_file(
     Pipeline completo:
       1. calcula hash
       2. tenta retornar resultado do cache (se valido e nao for force_refresh)
-      3. roda scanners em paralelo
+      3. roda scanners em paralelo (incluindo static PE)
       4. calcula veredito consolidado
       5. salva no banco
     """
@@ -35,18 +36,20 @@ async def scan_file(
     hashes = compute_hashes(file_path)
     size = file_size(file_path)
 
-    # 1) Tenta cache antes de gastar APIs
     if not force_refresh:
         cached = await database.get_cached(hashes["sha256"])
         if cached is not None:
             return cached
 
-    # 2) Dispara scanners habilitados em paralelo
     tasks = []
     labels = []
 
     tasks.append(scan_local(file_path, hashes))
     labels.append("local")
+
+    # Static PE analysis sempre roda (sem API key necessaria)
+    tasks.append(scan_static_pe(file_path))
+    labels.append("static_pe")
 
     if config.VIRUSTOTAL_API_KEY:
         tasks.append(scan_virustotal(hashes["sha256"]))
@@ -83,11 +86,9 @@ async def scan_file(
         "_cached": False,
     }
 
-    # 3) Persiste pra cache + historico
     try:
         await database.save_scan(report, scanned_by=scanned_by)
     except Exception as e:
-        # nao quebrar a request se o banco falhar; so logar
         report["_db_error"] = str(e)
 
     return report

@@ -36,6 +36,135 @@
       {% endif %}
     </section>
 
+    {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
+    {% set pe = report.results.get('static_pe') %}
+    {% if pe and pe.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>🔬 O que esse arquivo pode fazer</h2>
+        <p class="muted">
+          Análise estática — sem executar o arquivo. Leitura da estrutura interna do PE.
+        </p>
+
+        <p class="summary"><strong>{{ pe._summary }}</strong></p>
+
+        {# Capabilities como cards #}
+        {% if pe.capabilities %}
+          <div class="capabilities">
+            {% for c in pe.capabilities %}
+              <details class="cap cap-{{ c.severity }}">
+                <summary>
+                  <span class="cap-badge">{{ c.severity|upper }}</span>
+                  <span class="cap-label">{{ c.label }}</span>
+                  <span class="cap-count">{{ c.match_count }} função(ões)</span>
+                </summary>
+                <div class="cap-body">
+                  <p>{{ c.description }}</p>
+                  <p class="muted"><strong>Funções detectadas:</strong></p>
+                  <ul class="func-list">
+                    {% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}
+                  </ul>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted">Nenhuma capacidade suspeita mapeada nos imports.</p>
+        {% endif %}
+
+        {# IOCs extraidos #}
+        {% set iocs = pe.iocs %}
+        {% if iocs and (iocs.urls or iocs.ips or iocs.domains or iocs.registry or iocs.mutex) %}
+          <h3 style="margin-top: 1.5rem;">📡 IOCs extraídos</h3>
+          <div class="iocs">
+            {% if iocs.urls %}
+              <div><strong>URLs ({{ iocs.urls|length }}):</strong>
+                <ul>{% for u in iocs.urls %}<li><code>{{ u }}</code></li>{% endfor %}</ul>
+              </div>
+            {% endif %}
+            {% if iocs.ips %}
+              <div><strong>IPs ({{ iocs.ips|length }}):</strong>
+                <ul>{% for i in iocs.ips %}<li><code>{{ i }}</code></li>{% endfor %}</ul>
+              </div>
+            {% endif %}
+            {% if iocs.domains %}
+              <div><strong>Domínios ({{ iocs.domains|length }}):</strong>
+                <ul>{% for d in iocs.domains %}<li><code>{{ d }}</code></li>{% endfor %}</ul>
+              </div>
+            {% endif %}
+            {% if iocs.registry %}
+              <div><strong>Registry keys ({{ iocs.registry|length }}):</strong>
+                <ul>{% for r in iocs.registry %}<li><code>{{ r }}</code></li>{% endfor %}</ul>
+              </div>
+            {% endif %}
+            {% if iocs.mutex %}
+              <div><strong>Mutex ({{ iocs.mutex|length }}):</strong>
+                <ul>{% for m in iocs.mutex %}<li><code>{{ m }}</code></li>{% endfor %}</ul>
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {# Accordion tecnico expansivel #}
+        <details class="tech-details">
+          <summary>📐 Mostrar detalhes técnicos do PE</summary>
+          <div class="tech-body">
+            <h4>Metadados</h4>
+            <table class="meta">
+              <tr><th>Tipo</th><td>{{ pe.file_type }}</td></tr>
+              <tr><th>Arquitetura</th><td>{{ pe.architecture }}</td></tr>
+              <tr><th>Subsystem</th><td>{{ pe.subsystem }}</td></tr>
+              <tr><th>Assinado digitalmente</th><td>{{ "✅ Sim" if pe.is_signed else "❌ Não" }}</td></tr>
+              {% if pe.detected_packers %}
+                <tr><th>Packer detectado</th><td>{{ pe.detected_packers | join(', ') }}</td></tr>
+              {% endif %}
+            </table>
+
+            {% if pe.flags %}
+              <h4>Flags</h4>
+              <ul>{% for f in pe.flags %}<li>{{ f }}</li>{% endfor %}</ul>
+            {% endif %}
+
+            <h4>Seções ({{ pe.sections|length }})</h4>
+            <table class="sections">
+              <thead><tr><th>Nome</th><th>Raw size</th><th>Virtual</th><th>Entropia</th></tr></thead>
+              <tbody>
+                {% for s in pe.sections %}
+                  <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
+                    <td><code>{{ s.name }}</code></td>
+                    <td>{{ s.raw_size }}</td>
+                    <td>{{ s.virtual_size }}</td>
+                    <td>{{ s.entropy }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            <h4>Imports ({{ pe.imports|length }} DLLs)</h4>
+            {% for imp in pe.imports %}
+              <details class="dll-imports">
+                <summary><strong>{{ imp.dll }}</strong> <small>({{ imp.count }} funções)</small></summary>
+                <ul class="func-list">
+                  {% for f in imp.functions %}<li><code>{{ f }}</code></li>{% endfor %}
+                </ul>
+              </details>
+            {% endfor %}
+
+            {% if pe.exports %}
+              <h4>Exports ({{ pe.exports|length }})</h4>
+              <ul class="func-list">
+                {% for e in pe.exports %}<li><code>{{ e }}</code></li>{% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </details>
+      </section>
+    {% elif pe and pe.status == 'skipped' %}
+      <section class="card">
+        <h3>🔬 Análise estática</h3>
+        <p class="muted">{{ pe.reason }}</p>
+      </section>
+    {% endif %}
+
     <section class="card">
       <h2>Arquivo</h2>
       <table class="meta">
@@ -47,7 +176,8 @@
       </table>
     </section>
 
-    {% for name, data in report.results.items() %}
+    {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
+    {% for name, data in report.results.items() if name != 'static_pe' %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
