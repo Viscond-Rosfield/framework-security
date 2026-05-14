@@ -1,0 +1,62 @@
+name: Bug Report
+description: Reportar um problema reproduzivel
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Preencha os campos para acelerar a triagem.
+
+        Se for uma **vulnerabilidade de seguranca**, NAO abra issue publica.
+        Veja [SECURITY.md](../SECURITY.md).
+  - type: textarea
+    id: description
+    attributes:
+      label: Descricao
+      description: O que aconteceu? O que voce esperava que acontecesse?
+      placeholder: Ao fazer upload de X o sistema retornou Y, mas eu esperava Z.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      description: Liste os passos minimos para reproduzir.
+      placeholder: |
+        1. Acessar /
+        2. Fazer upload de arquivo `foo.txt`
+        3. Clicar em "Analisar"
+        4. Ver erro
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versao
+      description: Qual versao/commit do ThreatLens?
+      placeholder: "0.2.0 ou hash do commit"
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Como esta rodando?
+      options:
+        - Docker / docker-compose
+        - Python local (uvicorn)
+        - Render
+        - Fly.io
+        - Outro (descreva)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: SO
+      placeholder: "Ubuntu 22.04 / macOS 14 / Windows 11"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stack trace
+      render: shell

@@ -1,0 +1,28 @@
+name: Feature Request
+description: Sugerir uma nova funcionalidade ou melhoria
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que problema voce esta tentando resolver?
+      description: Foque no problema, nao na solucao.
+      placeholder: Hoje preciso abrir o VT, MD e HA manualmente um por um...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solucao proposta
+      placeholder: Adicionar uma rota /bulk que aceita varios arquivos de uma vez.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional / screenshots / links

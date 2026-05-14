@@ -1,0 +1,38 @@
+# Blueprint do Render para deploy automático.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Como usar:
+# 1. Suba este projeto no GitHub (público ou privado).
+# 2. No Render: New > Blueprint > selecione o repositório.
+# 3. Preencha as variáveis de ambiente quando solicitado.
+# 4. Click em Apply. Em ~2 min o serviço estará no ar.
+
+services:
+  - type: web
+    name: framework-security
+    runtime: python
+    plan: free                      # troque para "starter" ($7/mês) se quiser que não durma
+    region: oregon                  # mais próximo de você: "oregon" (US) ou "frankfurt" (EU)
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+
+      # ---- Autenticação (OBRIGATÓRIO) ----
+      - key: APP_USERNAME
+        value: admin
+      - key: APP_PASSWORD
+        generateValue: true         # Render gera uma senha forte automaticamente
+                                    # (você consulta no painel após o deploy)
+
+      # ---- API keys (preencha no painel do Render, NÃO commite) ----
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+      - key: METADEFENDER_API_KEY
+        sync: false
+
+      # ---- Configurações gerais ----
+      - key: MAX_FILE_SIZE_MB
+        value: "32"

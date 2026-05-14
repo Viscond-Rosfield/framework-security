@@ -1,0 +1,43 @@
+# Versionamento
+.git/
+.gitignore
+.github/
+
+# Virtualenvs / cache Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Variaveis sensiveis e dados locais
+.env
+.env.*
+data/
+uploads/*
+!uploads/.gitkeep
+*.db
+*.db-journal
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Documentacao que nao precisa entrar na image
+README.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+LICENSE
+docs/
+*.md
+!skill.md
+
+# Logs
+*.log
+logs/
