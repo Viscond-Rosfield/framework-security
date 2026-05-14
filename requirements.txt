@@ -8,3 +8,5 @@ pydantic==2.9.2
 aiofiles==24.1.0
 aiosqlite==0.20.0
 pefile==2024.8.26
+anthropic==0.39.0
+markdown==3.7

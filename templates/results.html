@@ -36,6 +36,26 @@
       {% endif %}
     </section>
 
+    {# ============ LLM ANALYST - prosa em portugues ============ #}
+    {% if report.llm_analysis %}
+      {% set llm = report.llm_analysis %}
+      {% if llm.status == 'ok' %}
+        <section class="card llm-card">
+          <h2>🤖 Análise pelo Claude</h2>
+          <p class="muted">
+            Resumo gerado por IA com base nos resultados dos scanners.
+            <small>Modelo: <code>{{ llm.model }}</code> | tokens: {{ llm.tokens_in }} in / {{ llm.tokens_out }} out</small>
+          </p>
+          <div class="llm-content">{{ llm.html | safe }}</div>
+        </section>
+      {% elif llm.status == 'error' %}
+        <section class="card">
+          <h3>🤖 Análise pelo Claude</h3>
+          <p class="error">Falhou: {{ llm.error }}</p>
+        </section>
+      {% endif %}
+    {% endif %}
+
     {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
     {% set pe = report.results.get('static_pe') %}
     {% if pe and pe.status == 'ok' %}

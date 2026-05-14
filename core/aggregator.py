@@ -15,6 +15,7 @@ from scanners.local_scanner import scan_local
 from scanners.static_pe import scan_static_pe
 from core.hasher import compute_hashes, file_size
 from core import database
+from core import llm_analyst
 import config
 
 
@@ -85,6 +86,14 @@ async def scan_file(
         "verdict": verdict,
         "_cached": False,
     }
+
+    # LLM analyst - le o report completo e escreve uma analise em prosa
+    try:
+        llm_result = await llm_analyst.analyze_report(report)
+        if llm_result is not None:
+            report["llm_analysis"] = llm_result
+    except Exception as e:
+        report["llm_analysis"] = {"status": "error", "error": str(e)}
 
     try:
         await database.save_scan(report, scanned_by=scanned_by)

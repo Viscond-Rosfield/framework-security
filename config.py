@@ -53,6 +53,18 @@ DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 CACHE_TTL_HOURS = int(os.getenv("CACHE_TTL_HOURS", "24"))
 
 
+# ---------------------------------------------------------------------------
+# LLM Analyst (Claude via Anthropic API) - opcional
+# ---------------------------------------------------------------------------
+# Quando configurado, o app envia o relatorio agregado para Claude e recebe
+# de volta uma analise em prosa em portugues, com recomendacoes.
+# Modelo padrao: Claude Haiku (rapido e barato, ~$0.003 por scan).
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001").strip()
+LLM_ENABLED = bool(ANTHROPIC_API_KEY)
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1500"))
+
+
 def scanner_status() -> dict:
     """Retorna quais scanners estao habilitados (com base nas chaves configuradas)."""
     return {

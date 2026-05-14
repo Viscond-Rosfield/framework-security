@@ -518,3 +518,77 @@ table.sections tr.high-entropy td:last-child::after { content: " ⚠"; }
   color: #94a3b8;
   margin-left: 0.5rem;
 }
+
+/* ============== ADICIONADO v0.4 - LLM Analyst ============== */
+
+.llm-card {
+  background: linear-gradient(180deg, #1e293b 0%, #1e2a4a 100%);
+  border-left: 4px solid #a78bfa;
+  position: relative;
+}
+
+.llm-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.llm-card .muted small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.llm-content {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.llm-content h2 {
+  font-size: 1rem;
+  color: #c4b5fd;
+  margin-top: 1.2rem;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 0.3rem;
+}
+
+.llm-content h2:first-child { margin-top: 0; }
+
+.llm-content h3 {
+  font-size: 0.95rem;
+  color: #ddd6fe;
+  margin-top: 1rem;
+  margin-bottom: 0.3rem;
+}
+
+.llm-content p {
+  margin: 0.6rem 0;
+  color: #e2e8f0;
+}
+
+.llm-content ul {
+  margin: 0.4rem 0;
+  padding-left: 1.4rem;
+}
+
+.llm-content li {
+  margin: 0.25rem 0;
+}
+
+.llm-content strong {
+  color: #fff;
+}
+
+.llm-content code {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fbbf24;
+}
+
+.llm-content hr {
+  border: none;
+  border-top: 1px solid #334155;
+  margin: 1rem 0;
+}
