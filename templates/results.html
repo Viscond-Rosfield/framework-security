@@ -182,7 +182,98 @@
       {# silenciamos o card "skipped" do PE - so mostramos se PDF e Office tambem foram skip #}
     {% endif %}
 
-    {# ============ STATIC ANALYSIS - PDF ============ #}
+    {# ============ STATIC ANALYSIS - ELF (Linux) ============ #}
+    {% set elf = report.results.get('static_elf') %}
+    {% if elf and elf.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>🐧 Análise do binário Linux (ELF)</h2>
+        <p class="muted">Estrutura interna do ELF — sem executar.</p>
+        <p class="summary"><strong>{{ elf._summary }}</strong></p>
+
+        <table class="meta">
+          <tr><th>Tipo</th><td>{{ elf.file_type }}</td></tr>
+          <tr><th>Arquitetura</th><td>{{ elf.architecture }} ({{ elf.bits }})</td></tr>
+          {% if elf.interpreter %}<tr><th>Interpreter</th><td><code>{{ elf.interpreter }}</code></td></tr>{% endif %}
+          <tr><th>Stripped</th><td>{{ "✅ Sim" if elf.is_stripped else "❌ Não" }}</td></tr>
+          <tr><th>PIE</th><td>{{ "✅" if elf.mitigations.pie else "❌" }}</td></tr>
+          <tr><th>NX (stack non-exec)</th><td>{{ "✅" if elf.mitigations.nx else "❌" }}</td></tr>
+          <tr><th>RELRO</th><td>{{ "✅" if elf.mitigations.relro else "❌" }}</td></tr>
+          <tr><th>Stack canary</th><td>{{ "✅" if elf.mitigations.canary else "❌" }}</td></tr>
+        </table>
+
+        {% if elf.flags %}
+          <ul>{% for f in elf.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        {% if elf.capabilities %}
+          <div class="capabilities">
+            {% for c in elf.capabilities %}
+              <details class="cap cap-{{ c.severity }}">
+                <summary>
+                  <span class="cap-badge">{{ c.severity|upper }}</span>
+                  <span class="cap-label">{{ c.label }}</span>
+                  <span class="cap-count">{{ c.match_count }} symbol(s)</span>
+                </summary>
+                <div class="cap-body">
+                  <p>{{ c.description }}</p>
+                  <ul class="func-list">
+                    {% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}
+                  </ul>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if elf.iocs and (elf.iocs.urls or elf.iocs.ips or elf.iocs.domains) %}
+          <h3 style="margin-top: 1rem;">📡 IOCs extraídos</h3>
+          <div class="iocs">
+            {% for cat in ['urls','ips','domains','paths'] %}
+              {% if elf.iocs[cat] %}
+                <div><strong>{{ cat|capitalize }} ({{ elf.iocs[cat]|length }})</strong>
+                  <ul>{% for v in elf.iocs[cat] %}<li><code>{{ v }}</code></li>{% endfor %}</ul>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <details class="tech-details">
+          <summary>📐 Detalhes técnicos do ELF</summary>
+          <div class="tech-body">
+            <h4>Bibliotecas necessárias ({{ elf.needed_libs|length }})</h4>
+            <ul class="func-list">
+              {% for lib in elf.needed_libs %}<li><code>{{ lib }}</code></li>{% endfor %}
+            </ul>
+
+            {% if elf.rpath or elf.runpath %}
+              <h4>RPATH / RUNPATH</h4>
+              <ul>
+                {% for p in elf.rpath %}<li class="error">RPATH: <code>{{ p }}</code></li>{% endfor %}
+                {% for p in elf.runpath %}<li>RUNPATH: <code>{{ p }}</code></li>{% endfor %}
+              </ul>
+            {% endif %}
+
+            <h4>Seções ({{ elf.sections|length }})</h4>
+            <table class="sections">
+              <thead><tr><th>Nome</th><th>Flags</th><th>Tamanho</th><th>Entropia</th></tr></thead>
+              <tbody>
+                {% for s in elf.sections %}
+                  <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
+                    <td><code>{{ s.name }}</code></td>
+                    <td><code>{{ s.flags }}</code></td>
+                    <td>{{ s.size }}</td>
+                    <td>{{ s.entropy }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+    {% endif %}
+
+        {# ============ STATIC ANALYSIS - PDF ============ #}
     {% set pdf = report.results.get('static_pdf') %}
     {% if pdf and pdf.status == 'ok' %}
       <section class="card static-analysis">
@@ -281,7 +372,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
