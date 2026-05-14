@@ -10,3 +10,4 @@ aiosqlite==0.20.0
 pefile==2024.8.26
 anthropic==0.39.0
 markdown==3.7
+oletools==0.60.2

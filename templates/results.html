@@ -179,9 +179,93 @@
         </details>
       </section>
     {% elif pe and pe.status == 'skipped' %}
-      <section class="card">
-        <h3>🔬 Análise estática</h3>
-        <p class="muted">{{ pe.reason }}</p>
+      {# silenciamos o card "skipped" do PE - so mostramos se PDF e Office tambem foram skip #}
+    {% endif %}
+
+    {# ============ STATIC ANALYSIS - PDF ============ #}
+    {% set pdf = report.results.get('static_pdf') %}
+    {% if pdf and pdf.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>📄 Análise do PDF</h2>
+        <p class="muted">Estrutura interna do PDF — sem executar.</p>
+        <p class="summary"><strong>{{ pdf._summary }}</strong></p>
+
+        {% if pdf.flags %}
+          <ul>
+            {% for f in pdf.flags %}<li class="error">{{ f }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if pdf.findings %}
+          <div class="capabilities">
+            {% for f in pdf.findings %}
+              <div class="cap cap-{{ f.severity }}">
+                <span class="cap-badge">{{ f.severity|upper }}</span>
+                <span class="cap-label">{{ f.label }}</span>
+                <span class="cap-count">{{ f.count }}x <code>{{ f.keyword }}</code></span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <details class="tech-details">
+          <summary>📐 Detalhes técnicos do PDF</summary>
+          <div class="tech-body">
+            <table class="meta">
+              <tr><th>Versão PDF</th><td>{{ pdf.version }}</td></tr>
+              <tr><th>Objetos</th><td>{{ pdf.num_objects }}</td></tr>
+              <tr><th>Streams</th><td>{{ pdf.num_streams }}</td></tr>
+              <tr><th>Encriptado</th><td>{{ "✅ Sim" if pdf.is_encrypted else "❌ Não" }}</td></tr>
+            </table>
+          </div>
+        </details>
+      </section>
+    {% endif %}
+
+    {# ============ STATIC ANALYSIS - OFFICE ============ #}
+    {% set office = report.results.get('static_office') %}
+    {% if office and office.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>📑 Análise do documento Office</h2>
+        <p class="muted">Macros VBA e indicadores estáticos.</p>
+        <p class="summary"><strong>{{ office._summary }}</strong></p>
+
+        <table class="meta">
+          <tr><th>Macros presentes</th><td>{{ "✅ Sim" if office.has_macros else "❌ Não" }}</td></tr>
+          {% if office.has_macros %}
+            <tr><th>Qtde de módulos VBA</th><td>{{ office.macro_count }}</td></tr>
+          {% endif %}
+          {% if office.extension %}
+            <tr><th>Extensão</th><td><code>{{ office.extension }}</code></td></tr>
+          {% endif %}
+        </table>
+
+        {% if office.flags %}
+          <ul>
+            {% for f in office.flags %}<li class="error">{{ f }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if office.findings %}
+          <div class="capabilities">
+            {% for f in office.findings %}
+              <div class="cap cap-{{ f.severity }}">
+                <span class="cap-badge">{{ f.severity|upper }}</span>
+                <span class="cap-label">{{ f.label }}</span>
+                <span class="cap-count">{{ f.count }}x <code>{{ f.keyword }}</code></span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if office.sample_code %}
+          <details class="tech-details">
+            <summary>📐 Amostra do código VBA (primeiros 800 chars)</summary>
+            <div class="tech-body">
+              <pre style="white-space: pre-wrap; word-break: break-all; font-size: 0.8rem;">{{ office.sample_code }}</pre>
+            </div>
+          </details>
+        {% endif %}
       </section>
     {% endif %}
 
@@ -197,7 +281,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name != 'static_pe' %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 

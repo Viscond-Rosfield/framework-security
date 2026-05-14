@@ -13,6 +13,8 @@ from scanners.metadefender import scan_metadefender
 from scanners.hybrid_analysis import scan_hybrid_analysis
 from scanners.local_scanner import scan_local
 from scanners.static_pe import scan_static_pe
+from scanners.static_pdf import scan_static_pdf
+from scanners.static_office import scan_static_office
 from core.hasher import compute_hashes, file_size
 from core import database
 from core import llm_analyst
@@ -48,9 +50,13 @@ async def scan_file(
     tasks.append(scan_local(file_path, hashes))
     labels.append("local")
 
-    # Static PE analysis sempre roda (sem API key necessaria)
+    # Static analyses sempre rodam (sem API key necessaria)
     tasks.append(scan_static_pe(file_path))
     labels.append("static_pe")
+    tasks.append(scan_static_pdf(file_path))
+    labels.append("static_pdf")
+    tasks.append(scan_static_office(file_path))
+    labels.append("static_office")
 
     if config.VIRUSTOTAL_API_KEY:
         tasks.append(scan_virustotal(hashes["sha256"]))
