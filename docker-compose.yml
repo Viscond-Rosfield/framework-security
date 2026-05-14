@@ -1,0 +1,30 @@
+# ThreatLens - docker-compose
+#
+# Como usar:
+#   1. cp .env.example .env  (e edite as variaveis)
+#   2. docker compose up -d
+#   3. Acesse http://localhost:8000
+
+services:
+  threatlens:
+    build: .
+    image: threatlens:latest
+    container_name: threatlens
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persiste banco e historico entre restarts
+      - ./data:/app/data
+      # Uploads sao efemeros, mas montar evita escrever na layer
+      - threatlens_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  threatlens_uploads:

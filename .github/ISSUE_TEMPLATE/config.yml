@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Reportar vulnerabilidade de seguranca
+    url: https://github.com/Viscond-Rosfield/framework-security/security/advisories/new
+    about: Use o canal privado de Security Advisory. NAO abra issue publica.
+  - name: Discussoes da comunidade
+    url: https://github.com/Viscond-Rosfield/framework-security/discussions
+    about: Perguntas, ideias, mostra de uso vao em Discussions.

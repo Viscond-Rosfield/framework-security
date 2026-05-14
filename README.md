@@ -1,186 +1,246 @@
-# 🛡️ Framework de Segurança - Analisador de Arquivos
+<div align="center">
 
-MVP de um framework em Python/FastAPI que recebe um arquivo via upload e o analisa contra múltiplos serviços de detecção de malware, consolidando um veredito único.
+# 🔍 ThreatLens
 
-## Funcionalidades
+**Meta-aggregator open-source para analise de malware.**
 
-- **Análise local** offline: hash SHA256/MD5/SHA1, base de hashes conhecidos (inclui EICAR), detecção de magic bytes, *double extension* e extensões perigosas.
-- **VirusTotal**: consulta o hash em 70+ engines de AV.
-- **MetaDefender (OPSWAT)**: consulta multi-engine.
-- **Hybrid Analysis**: pesquisa de amostras analisadas em sandbox.
-- Interface **web** (tema escuro) com formulário de upload + tela de relatório.
-- Endpoint **JSON** (`POST /api/scan`) para integração programática.
-- Os scanners rodam em paralelo (asyncio + httpx).
+Combine VirusTotal, MetaDefender, Hybrid Analysis e analise local em uma unica interface.
+Self-hospede, traga sua propria API key e tenha controle total.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED)](Dockerfile)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+</div>
+
+---
+
+## Por que ThreatLens?
+
+Analistas de seguranca perdem tempo abrindo VirusTotal, MetaDefender e
+Hybrid Analysis um por um, copiando hashes, comparando vereditos. ThreatLens
+faz isso em uma so interface, com cache, historico e API para integracao.
+
+- 🔒 **Privacidade primeiro** — arquivos sao deletados imediatamente apos analise
+- 🔑 **BYOK** (Bring Your Own Key) — voce usa suas proprias API keys
+- 🐳 **Self-hostavel** — `docker compose up` e voce esta no ar
+- 🎯 **Open-source MIT** — auditavel, sem caixa-preta
+- ⚡ **Cache inteligente** — mesmo hash nao re-consulta APIs por 24h
+- 📊 **Historico** — toda analise fica registrada e pesquisavel
+- 🔌 **API JSON** — integre com seu SIEM/SOAR
+
+## Features
+
+| Recurso | Status |
+|---|---|
+| Scanner local (hash conhecido, EICAR, magic bytes, double extension) | ✅ |
+| Integracao com VirusTotal | ✅ |
+| Integracao com MetaDefender (OPSWAT) | ✅ |
+| Integracao com Hybrid Analysis | ✅ |
+| Cache SQLite (TTL configuravel) | ✅ |
+| Historico com busca | ✅ |
+| HTTP Basic Auth | ✅ |
+| API JSON (`/api/scan`) | ✅ |
+| OpenAPI/Swagger docs (`/docs`) | ✅ |
+| YARA rules locais | 🛣️ Roadmap |
+| Upload automatico ao VT (quando hash desconhecido) | 🛣️ Roadmap |
+| CLI distribuivel (`pip install threatlens`) | 🛣️ Roadmap |
+| Webhooks (Slack/Discord/SIEM) | 🛣️ Roadmap |
+| Analise de URLs/dominios | 🛣️ Roadmap |
+| Rate limiting + captcha | 🛣️ Roadmap |
+| BYOK na UI (cada user cola sua key) | 🛣️ Roadmap |
+
+## Quick start
+
+### Com Docker (recomendado)
+
+```bash
+git clone https://github.com/Viscond-Rosfield/framework-security.git
+cd framework-security
+
+cp .env.example .env
+# Edite .env e coloque APP_PASSWORD e suas API keys
+
+docker compose up -d
+```
+
+Acesse **http://localhost:8000**.
+
+### Com Python local
+
+```bash
+git clone https://github.com/Viscond-Rosfield/framework-security.git
+cd framework-security
+
+python3 -m venv .venv
+source .venv/bin/activate          # Linux/Mac
+# .venv\Scripts\activate            # Windows
+
+pip install -r requirements.txt
+cp .env.example .env                # edite suas chaves
+
+uvicorn app:app --reload
+```
+
+### Deploy 1-clique
+
+| Plataforma | Botao |
+|---|---|
+| Render | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Viscond-Rosfield/framework-security) |
+
+> Outras plataformas (Railway, Fly.io) sao suportadas via Dockerfile, basta apontar pro repositorio.
+
+## Variaveis de ambiente
+
+| Variavel | Padrao | Descricao |
+|---|---|---|
+| `APP_USERNAME` | `admin` | Usuario do HTTP Basic Auth |
+| `APP_PASSWORD` | _(vazio)_ | **OBRIGATORIO em producao**. Vazio = auth desabilitada |
+| `VIRUSTOTAL_API_KEY` | _(vazio)_ | https://www.virustotal.com/gui/my-apikey |
+| `METADEFENDER_API_KEY` | _(vazio)_ | https://metadefender.opswat.com/account |
+| `HYBRID_ANALYSIS_API_KEY` | _(vazio)_ | https://www.hybrid-analysis.com/my-account?tab=%2Fapi-keys |
+| `MAX_FILE_SIZE_MB` | `32` | Tamanho maximo de upload |
+| `DATABASE_PATH` | `data/scans.db` | Caminho do SQLite (cache + historico) |
+| `CACHE_TTL_HOURS` | `24` | Tempo de validade do cache (0 desabilita) |
+
+## API
+
+ThreatLens expoe um endpoint JSON e tem docs interativas em `/docs`.
+
+### Scan via API
+
+```bash
+curl -u admin:SUA_SENHA \
+     -X POST https://sua-instancia/api/scan \
+     -F "file=@./eicar.txt"
+```
+
+Resposta:
+
+```json
+{
+  "file": {
+    "name": "eicar.txt",
+    "size_bytes": 69,
+    "md5": "44d88612fea8a8f36de82e1278abb02f",
+    "sha1": "...",
+    "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
+  },
+  "results": {
+    "local": { "status": "ok", "detections": 1, "flags": ["EICAR detected"] },
+    "virustotal": { "status": "ok", "detections": 63, "engines": 73 }
+  },
+  "verdict": {
+    "level": "malicious",
+    "total_detections": 64,
+    "total_engines": 74,
+    "flagged_by": ["local", "virustotal"]
+  }
+}
+```
+
+## Como funciona
+
+```
+Upload -> hash SHA256 -> cache hit? -> [SIM] retorna do banco
+                                    -> [NAO] -> [VirusTotal API]
+                                              -> [MetaDefender API]  (paralelo)
+                                              -> [Hybrid Analysis API]
+                                              -> [Scanner local]
+                                    -> agrega resultados
+                                    -> calcula veredito
+                                    -> persiste no banco
+                                    -> deleta arquivo
+```
+
+### Como o veredito e calculado
+
+| Condicao | Veredito |
+|---|---|
+| Qualquer scanner reportou deteccao > 0 | `malicious` |
+| Apenas suspeitas | `suspicious` |
+| Nada sinalizado | `clean` |
 
 ## Estrutura
 
 ```
-Framework - Security/
+threatlens/
 ├── app.py                 # FastAPI - rotas web + JSON
-├── config.py              # Carrega .env e expõe constantes
-├── requirements.txt
-├── .env.example           # Modelo das variáveis de ambiente
+├── config.py              # Carrega .env
 ├── core/
-│   ├── hasher.py          # Cálculo de hashes
-│   └── aggregator.py      # Orquestra scanners e gera veredito
+│   ├── aggregator.py      # Orquestra scanners + veredito
+│   ├── database.py        # SQLite (cache + historico)
+│   └── hasher.py
 ├── scanners/
-│   ├── local_scanner.py   # Heurísticas offline
+│   ├── local_scanner.py   # Heuristicas offline
 │   ├── virustotal.py
 │   ├── metadefender.py
 │   └── hybrid_analysis.py
-├── templates/
-│   ├── index.html         # Página de upload
-│   └── results.html       # Página de relatório
-├── static/
-│   └── style.css
-└── uploads/               # Pasta temporária (arquivo é deletado após análise)
+├── templates/             # Jinja2 (web UI)
+├── static/                # CSS
+├── Dockerfile
+├── docker-compose.yml
+└── render.yaml            # Blueprint do Render
 ```
 
-## Instalação
+## Roadmap
 
-```bash
-# 1. Crie um virtualenv (opcional)
-python -m venv .venv
-.venv\Scripts\activate            # Windows
-# source .venv/bin/activate       # Linux/Mac
+Veja a lista completa de features planejadas em [issues com a label `roadmap`](https://github.com/Viscond-Rosfield/framework-security/labels/roadmap).
 
-# 2. Instale as dependências
-pip install -r requirements.txt
+**Proximos marcos:**
 
-# 3. Configure as chaves de API
-copy .env.example .env             # Windows
-# cp .env.example .env             # Linux/Mac
-# edite .env e preencha as chaves
-```
+- v0.3 — BYOK na UI + rate limit + tests
+- v0.4 — YARA rules + upload automatico ao VT
+- v0.5 — CLI (`pip install threatlens`) + webhooks
+- v1.0 — Estavel, docs completos, feed publico de IOCs
 
-### Onde obter as chaves de API
+## Contribuir
 
-| Serviço | URL | Notas |
-|---|---|---|
-| VirusTotal | https://www.virustotal.com/gui/my-apikey | Free: 4 req/min, 500/dia |
-| MetaDefender | https://metadefender.opswat.com/account | Free: ~1000 req/dia |
-| Hybrid Analysis | https://www.hybrid-analysis.com/my-account?tab=%2Fapi-keys | Requer conta verificada |
+PRs sao muito bem-vindos! Leia o [CONTRIBUTING.md](CONTRIBUTING.md) antes.
 
-> O scanner **local** funciona sem qualquer chave de API — útil para começar.
+Areas onde mais precisamos de ajuda:
 
-## Como rodar
+- 🧪 **Testes** — coverage ainda baixo
+- 🌍 **Traducao** — i18n para PT-EN-ES
+- 📚 **Docs** — exemplos de uso, screenshots, video demo
+- 🔌 **Novos scanners** — MalwareBazaar, ClamAV, YARA, etc.
 
-```bash
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
+## Aviso legal
 
-Abra **http://localhost:8000** no navegador.
+ThreatLens e uma ferramenta **defensiva**. Use somente para:
 
-### Teste rápido com EICAR
+- Analisar arquivos que voce tem o direito de analisar
+- Pesquisa em seguranca
+- Educacao
 
-Crie um arquivo `eicar.txt` com o conteúdo abaixo (padrão internacional de teste, **não é vírus de verdade**):
+**NAO** use para auxiliar criacao, distribuicao ou execucao de malware. O uso
+indevido e responsabilidade do usuario.
 
-```
-X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
-```
+## Privacidade
 
-Faça upload — o scanner local deve sinalizar como malicioso pelo hash.
+- Arquivos sao **deletados imediatamente** apos a analise (sucesso ou erro)
+- Apenas **hashes e metadados** sao salvos no banco
+- Nada e enviado pra terceiros alem das APIs **que voce configurar** com sua chave
+- Voce e dono da inflexao quando self-host
 
-### Endpoint JSON
+## Licenca
 
-```bash
-curl -X POST http://localhost:8000/api/scan \
-     -F "file=@./eicar.txt"
-```
+MIT. Veja [LICENSE](LICENSE).
 
-Retorna um JSON com hashes, resultado de cada scanner e veredito consolidado.
+## Reconhecimentos
 
-## Como o veredito é calculado
+Construido sobre o trabalho excelente de:
 
-| Condição | Veredito |
-|---|---|
-| Qualquer scanner reportou detecção > 0 | `malicious` |
-| Apenas suspeitas | `suspicious` |
-| Nenhuma detecção/suspeita | `clean` |
-
-## Deploy no Render (gratuito)
-
-A aplicação está preparada para deploy automático via Blueprint (`render.yaml`).
-
-### 1. Subir no GitHub
-
-```bash
-cd ~/framework-security
-git init
-git add .
-git commit -m "Initial commit"
-# Crie um repositório PRIVADO em https://github.com/new
-git branch -M main
-git remote add origin https://github.com/SEU-USUARIO/framework-security.git
-git push -u origin main
-```
-
-> ⚠️ **NUNCA commite o `.env`** — ele já está no `.gitignore`. Suas chaves de API vão direto no painel do Render.
-
-### 2. Conectar no Render
-
-1. Acesse https://render.com e faça login com GitHub
-2. **New → Blueprint**
-3. Selecione o repositório `framework-security`
-4. Render lê o `render.yaml` automaticamente
-5. Preencha as variáveis sensíveis (as marcadas com `sync: false`):
-   - `VIRUSTOTAL_API_KEY`
-   - `METADEFENDER_API_KEY`
-   - `HYBRID_ANALYSIS_API_KEY`
-6. Click **Apply**
-
-Em ~2 minutos você terá uma URL `https://framework-security-xxxx.onrender.com`.
-
-### 3. Recuperar a senha gerada
-
-O Render gera automaticamente uma senha forte para `APP_PASSWORD`. Para vê-la:
-
-1. Acesse seu service no painel do Render
-2. **Environment** → procure `APP_PASSWORD` → click no olho 👁
-3. Anote — você usará no prompt do navegador
-
-Usuário padrão: `admin` (ou o que você definiu em `APP_USERNAME`).
-
-### 4. Testar
-
-Acesse a URL no navegador. O navegador vai pedir usuário/senha (HTTP Basic). Após autenticar, você cai na página de upload.
-
-Para uso programático:
-
-```bash
-curl -u admin:SUA_SENHA -X POST https://sua-url.onrender.com/api/scan \
-     -F "file=@./arquivo.exe"
-```
-
-### Notas sobre o free tier
-
-- O serviço **dorme após 15 min** sem requisições. O primeiro acesso depois disso demora ~30s para acordar.
-- Para evitar isso: upgrade para `Starter ($7/mês)` no `render.yaml` (campo `plan`).
-- **Não** mantenha estado em disco — o filesystem do Render é efêmero. (Sua app já deleta uploads após análise, então tudo certo.)
-
-### Atualizar a aplicação
-
-Qualquer `git push` no `main` dispara um novo deploy automaticamente.
-
-```bash
-git add .
-git commit -m "feat: ..."
-git push
-```
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [VirusTotal API](https://docs.virustotal.com/)
+- [OPSWAT MetaDefender](https://docs.opswat.com/mdcloud)
+- [Hybrid Analysis](https://www.hybrid-analysis.com/docs/api/v2)
+- O padrao [EICAR](https://www.eicar.org/) de teste antivirus
 
 ---
 
-## Próximos passos sugeridos
-
-- Adicionar **upload automático ao VirusTotal** quando o hash não for encontrado (endpoint `/files`).
-- Cache de resultados (Redis ou SQLite) para evitar consultas repetidas.
-- Suporte a **YARA** para regras customizadas (biblioteca `yara-python`).
-- Autenticação e rate-limit por usuário.
-- Exportar relatórios em PDF.
-- Histórico de análises em banco.
-
-## Segurança
-
-- Arquivos são salvos com nome único (UUID) e **deletados imediatamente após a análise**.
-- Limite de tamanho configurável via `MAX_FILE_SIZE_MB`.
-- Para uso em produção, considere rodar atrás de um proxy reverso (nginx) com TLS e isolar a pasta de uploads em um diretório com permissões restritas.
+<div align="center">
+Feito com 🛡️ por <a href="https://github.com/Viscond-Rosfield">Mateus Corcini</a> e <a href="https://github.com/Viscond-Rosfield/framework-security/graphs/contributors">contribuidores</a>.
+</div>
