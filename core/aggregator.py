@@ -15,6 +15,7 @@ from scanners.static_pe import scan_static_pe
 from scanners.static_pdf import scan_static_pdf
 from scanners.static_office import scan_static_office
 from scanners.static_elf import scan_static_elf
+from scanners.static_yara import scan_static_yara
 from core.hasher import compute_hashes, file_size
 from core import database
 from core import llm_analyst
@@ -59,6 +60,8 @@ async def scan_file(
     labels.append("static_office")
     tasks.append(scan_static_elf(file_path))
     labels.append("static_elf")
+    tasks.append(scan_static_yara(file_path))
+    labels.append("static_yara")
 
     if config.VIRUSTOTAL_API_KEY:
         tasks.append(scan_virustotal(hashes["sha256"]))

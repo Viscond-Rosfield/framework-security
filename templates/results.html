@@ -56,7 +56,40 @@
       {% endif %}
     {% endif %}
 
-    {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
+    {# ============ YARA matches - destaque com regras matched ============ #}
+    {% set yara = report.results.get('static_yara') %}
+    {% if yara and yara.status == 'ok' and yara.total_matches > 0 %}
+      <section class="card static-analysis">
+        <h2>📐 YARA matches ({{ yara.total_matches }})</h2>
+        <p class="muted">Regras YARA que casaram com este arquivo.</p>
+        <p class="summary"><strong>{{ yara._summary }}</strong></p>
+        <div class="capabilities">
+          {% for m in yara.matches %}
+            <details class="cap cap-{{ m.meta.severity }}">
+              <summary>
+                <span class="cap-badge">{{ m.meta.severity|upper }}</span>
+                <span class="cap-label"><code>{{ m.rule }}</code></span>
+                <span class="cap-count">{{ m.meta.category }}</span>
+              </summary>
+              <div class="cap-body">
+                <p>{{ m.meta.description }}</p>
+                {% if m.meta.author %}<p class="muted">Autor: {{ m.meta.author }}</p>{% endif %}
+                {% if m.meta.reference %}<p><a href="{{ m.meta.reference }}" target="_blank" rel="noopener">Referência →</a></p>{% endif %}
+                {% if m.tags %}<p class="muted">Tags: {% for t in m.tags %}<code>{{ t }}</code> {% endfor %}</p>{% endif %}
+                <p class="muted">{{ m.strings_count }} string(s) matched</p>
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </section>
+    {% elif yara and yara.status == 'error' %}
+      <section class="card">
+        <h3>📐 YARA</h3>
+        <p class="error">Erro: {{ yara.error }}</p>
+      </section>
+    {% endif %}
+
+        {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
     {% set pe = report.results.get('static_pe') %}
     {% if pe and pe.status == 'ok' %}
       <section class="card static-analysis">
@@ -372,7 +405,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 

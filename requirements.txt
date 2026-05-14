@@ -12,3 +12,4 @@ anthropic==0.39.0
 markdown==3.7
 oletools==0.60.2
 pyelftools==0.31
+yara-python==4.5.1
