@@ -129,7 +129,38 @@
       </section>
     {% endif %}
 
-        {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
+        {# ============ EMBEDDED FILES (Binwalk-style) ============ #}
+    {% set emb = report.results.get('static_embedded') %}
+    {% if emb and emb.status == 'ok' and emb.embedded_count > 0 %}
+      <section class="card static-analysis">
+        <h2>📦 Arquivos embedados ({{ emb.embedded_count }})</h2>
+        <p class="muted">
+          Magic bytes encontrados em offsets além do início do arquivo.
+          Tipo do arquivo: <code>{{ emb.own_type }}</code>.
+        </p>
+        <p class="summary"><strong>{{ emb._summary }}</strong></p>
+
+        {% if emb.flags %}
+          <ul>{% for f in emb.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        <table class="sections">
+          <thead><tr><th>Severidade</th><th>Offset</th><th>Tipo</th><th>Detectado</th></tr></thead>
+          <tbody>
+            {% for f in emb.findings %}
+              <tr>
+                <td><span class="cap-badge sev-{{ f.severity }}">{{ f.severity|upper }}</span></td>
+                <td><code>{{ f.offset_hex }}</code></td>
+                <td><code>{{ f.type }}</code></td>
+                <td>{{ f.label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+
+            {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
     {% set pe = report.results.get('static_pe') %}
     {% if pe and pe.status == 'ok' %}
       <section class="card static-analysis">
@@ -475,7 +506,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm', 'static_embedded') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
