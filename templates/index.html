@@ -88,7 +88,7 @@
     <section class="card">
       <div class="sev-strip sev-strip-llm"></div>
       <div class="card-head"><h2><i class="ti ti-upload"></i> Enviar arquivo</h2></div>
-      <form action="/scan" method="post" enctype="multipart/form-data" class="upload-form">
+      <form id="scan-form" action="/scan" method="post" enctype="multipart/form-data" class="upload-form">
         <label for="file" class="filelabel">
           <strong>Selecione um arquivo</strong>
           <small>Tamanho máximo: <strong>{{ max_size_mb }} MB</strong></small>
@@ -98,7 +98,7 @@
           <input type="checkbox" name="force_refresh" value="1" />
           <span>Forçar nova análise (ignorar cache)</span>
         </label>
-        <button type="submit" class="btn-primary">
+        <button type="submit" class="btn-primary" id="scan-btn">
           <i class="ti ti-scan"></i> Analisar
         </button>
       </form>
@@ -111,5 +111,70 @@
       </small>
     </footer>
   </main>
+
+  {# ============ LOADING OVERLAY ============ #}
+  <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <h2 class="loading-title">Analisando arquivo</h2>
+      <p class="loading-msg" id="loading-msg">Calculando hashes…</p>
+      <div class="loading-file" id="loading-file"></div>
+      <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+      <p class="loading-hint">
+        <i class="ti ti-clock"></i> Pode levar até 60s — não feche a página.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var form = document.getElementById('scan-form');
+      var overlay = document.getElementById('loading-overlay');
+      var msgEl = document.getElementById('loading-msg');
+      var fileEl = document.getElementById('loading-file');
+      var fileInput = document.getElementById('file');
+
+      var messages = [
+        'Calculando hashes (MD5/SHA1/SHA256/ssdeep/TLSH)…',
+        'Verificando cache local…',
+        'Rodando análise estática (PE/ELF/Mach-O/APK)…',
+        'Aplicando regras YARA…',
+        'Consultando VirusTotal…',
+        'Consultando MetaDefender…',
+        'Procurando arquivos similares no histórico…',
+        'Pedindo análise pra Claude…',
+        'Consolidando relatório…'
+      ];
+      var msgIdx = 0;
+      var msgTimer = null;
+
+      form.addEventListener('submit', function(e){
+        if (!fileInput.files || !fileInput.files[0]) return;
+        var f = fileInput.files[0];
+        fileEl.textContent = f.name + ' • ' + (f.size / 1024).toFixed(1) + ' KB';
+        overlay.classList.add('is-active');
+        document.body.style.overflow = 'hidden';
+        msgIdx = 0;
+        msgEl.textContent = messages[0];
+        msgTimer = setInterval(function(){
+          msgIdx = (msgIdx + 1) % messages.length;
+          msgEl.style.opacity = '0';
+          setTimeout(function(){
+            msgEl.textContent = messages[msgIdx];
+            msgEl.style.opacity = '1';
+          }, 200);
+        }, 3500);
+      });
+
+      // Se o usuário voltar pra essa página com back button (bfcache), esconder overlay
+      window.addEventListener('pageshow', function(e){
+        if (e.persisted) {
+          overlay.classList.remove('is-active');
+          document.body.style.overflow = '';
+          if (msgTimer) clearInterval(msgTimer);
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
