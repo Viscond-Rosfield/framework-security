@@ -19,12 +19,37 @@ METADEFENDER_API_KEY = os.getenv("METADEFENDER_API_KEY", "").strip()
 
 
 # ---------------------------------------------------------------------------
-# Autenticacao (HTTP Basic)
+# Autenticacao (HTTP Basic - suporta multi-user)
 # ---------------------------------------------------------------------------
+# Modo simples (1 usuario): APP_USERNAME + APP_PASSWORD
+# Modo multi-user: APP_USERS no formato "user1:pass1,user2:pass2,user3:pass3"
 APP_USERNAME = os.getenv("APP_USERNAME", "admin").strip()
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
-# Em producao exigimos senha. Em dev, se ficar vazio, a auth e desabilitada.
-AUTH_ENABLED = bool(APP_PASSWORD)
+APP_USERS_RAW = os.getenv("APP_USERS", "").strip()
+
+
+def _parse_users() -> dict[str, str]:
+    """Combina APP_USERS + APP_USERNAME/APP_PASSWORD num unico dict."""
+    users: dict[str, str] = {}
+    # 1) Parsing de APP_USERS (multi-user)
+    if APP_USERS_RAW:
+        for pair in APP_USERS_RAW.split(","):
+            pair = pair.strip()
+            if ":" in pair:
+                u, p = pair.split(":", 1)
+                u = u.strip()
+                p = p.strip()
+                if u and p:
+                    users[u] = p
+    # 2) Backwards compat: APP_USERNAME + APP_PASSWORD entra como mais 1 user
+    if APP_PASSWORD and APP_USERNAME:
+        users.setdefault(APP_USERNAME, APP_PASSWORD)
+    return users
+
+
+APP_USERS = _parse_users()
+# Em producao exigimos pelo menos 1 user. Em dev (sem nenhum), auth desabilitada.
+AUTH_ENABLED = bool(APP_USERS)
 
 
 # ---------------------------------------------------------------------------

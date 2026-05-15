@@ -26,6 +26,10 @@ services:
       - key: APP_PASSWORD
         generateValue: true         # Render gera uma senha forte automaticamente
                                     # (você consulta no painel após o deploy)
+      # Multi-user (opcional): cole aqui no formato user1:senha1,user2:senha2
+      # Se preencher, APP_USERNAME/APP_PASSWORD viram apenas mais 1 usuário.
+      - key: APP_USERS
+        sync: false
 
       # ---- API keys (preencha no painel do Render, NÃO commite) ----
       - key: VIRUSTOTAL_API_KEY

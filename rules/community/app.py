@@ -49,6 +49,10 @@ security = HTTPBasic(auto_error=False)
 
 
 def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)) -> str:
+    """
+    Suporta multi-user: APP_USERS = "user1:pass1,user2:pass2".
+    Compatibilidade: APP_USERNAME + APP_PASSWORD ainda funcionam (vira mais um user).
+    """
     if not config.AUTH_ENABLED:
         return "anonymous"
     if credentials is None:
@@ -57,9 +61,18 @@ def authenticate(credentials: Optional[HTTPBasicCredentials] = Depends(security)
             detail="Credenciais necessarias",
             headers={"WWW-Authenticate": "Basic"},
         )
-    ok_user = secrets.compare_digest(credentials.username, config.APP_USERNAME)
-    ok_pass = secrets.compare_digest(credentials.password, config.APP_PASSWORD)
-    if not (ok_user and ok_pass):
+
+    expected_password = config.APP_USERS.get(credentials.username)
+    # Sempre comparar mesmo se user nao existir (timing attack safe)
+    if expected_password is None:
+        # User invalido - usa string vazia pra manter tempo constante
+        secrets.compare_digest(credentials.password, "x" * 32)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais invalidas",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    if not secrets.compare_digest(credentials.password, expected_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais invalidas",
