@@ -129,7 +129,39 @@
       </section>
     {% endif %}
 
-        {# ============ STATIC ANALYSIS - APK (Android) ============ #}
+        {# ============ MEMORY DUMP TRIAGE ============ #}
+    {% set mem = report.results.get('static_memory') %}
+    {% if mem and mem.status == 'ok' %}
+      <section class="card static-analysis">
+        <h2>🧠 Memory dump triage</h2>
+        <p class="muted">Formato identificado e comandos sugeridos para análise (Volatility/Rekall).</p>
+        <p class="summary"><strong>{{ mem._summary }}</strong></p>
+
+        <table class="meta">
+          <tr><th>Formato</th><td>{{ mem.format }}</td></tr>
+          {% if mem.architecture %}<tr><th>Arquitetura</th><td>{{ mem.architecture }}</td></tr>{% endif %}
+          {% if mem.windows_version %}<tr><th>Windows version</th><td>{{ mem.windows_version }}</td></tr>{% endif %}
+          {% if mem.dump_type %}<tr><th>Dump type</th><td>{{ mem.dump_type }}</td></tr>{% endif %}
+          {% if mem.num_cpus %}<tr><th>CPUs</th><td>{{ mem.num_cpus }}</td></tr>{% endif %}
+          {% if mem.bug_check_code %}<tr><th>Bug check</th><td><code>{{ mem.bug_check_code }}</code></td></tr>{% endif %}
+          {% if mem.timestamp %}<tr><th>Timestamp</th><td>{{ mem.timestamp }}</td></tr>{% endif %}
+          <tr><th>Tamanho</th><td>{{ mem.size_human }}</td></tr>
+        </table>
+
+        {% if mem.flags %}
+          <ul>{% for f in mem.flags %}<li class="muted">{{ f }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        {% if mem.suggestions %}
+          <h3 style="margin-top: 1rem;">🔧 Comandos sugeridos</h3>
+          <p class="muted">Rode com <code>vol</code> (Volatility 3) localmente após baixar o dump:</p>
+          <pre class="asm-listing">{% for s in mem.suggestions %}<span class="asm-mnemonic">$</span> <span class="asm-op">{{ s }}</span>
+{% endfor %}</pre>
+        {% endif %}
+      </section>
+    {% endif %}
+
+            {# ============ STATIC ANALYSIS - APK (Android) ============ #}
     {% set apk = report.results.get('static_apk') %}
     {% if apk and apk.status == 'ok' %}
       <section class="card static-analysis">
@@ -673,7 +705,7 @@
     </section>
 
     {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm', 'static_embedded', 'static_macho', 'static_apk') %}
+    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara', 'static_disasm', 'static_embedded', 'static_macho', 'static_apk', 'static_memory') %}
       <section class="card scanner-result">
         <h3>{{ name }}</h3>
 
