@@ -19,6 +19,7 @@ from scanners.static_yara import scan_static_yara
 from scanners.static_disasm import scan_static_disasm
 from scanners.static_embedded import scan_static_embedded
 from scanners.static_macho import scan_static_macho
+from scanners.static_apk import scan_static_apk
 from core.hasher import compute_hashes, file_size
 from core import database
 from core import llm_analyst
@@ -71,6 +72,8 @@ async def scan_file(
     labels.append("static_embedded")
     tasks.append(scan_static_macho(file_path))
     labels.append("static_macho")
+    tasks.append(scan_static_apk(file_path))
+    labels.append("static_apk")
 
     if config.VIRUSTOTAL_API_KEY:
         tasks.append(scan_virustotal(hashes["sha256"]))
