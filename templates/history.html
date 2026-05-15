@@ -2,39 +2,74 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Historico - Framework de Seguranca</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Histórico — Framework Security</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css" />
 </head>
-<body>
-  <main class="container">
-    <header class="topbar">
-      <h1>📋 Historico de Analises</h1>
+<body class="report-body">
+  <main class="report-wrap">
+
+    <header class="report-topbar">
+      <a href="/" class="brand"><i class="ti ti-shield-lock"></i> Framework Security</a>
       <nav>
-        <a href="/">Analisar</a>
-        <a href="/history" class="active">Historico</a>
+        <a href="/"><i class="ti ti-scan"></i> Analisar</a>
+        <a href="/history" class="active"><i class="ti ti-history"></i> Histórico</a>
+        {% if user and user != 'anonymous' %}
+          <span class="user-chip"><i class="ti ti-user"></i> {{ user }}</span>
+        {% endif %}
       </nav>
     </header>
 
+    <section class="hero hero-clean home-hero">
+      <div class="hero-main">
+        <div class="hero-icon"><i class="ti ti-history"></i></div>
+        <div class="hero-body">
+          <div class="hero-label">Análises realizadas</div>
+          <h1 class="hero-verdict">Histórico</h1>
+          <p class="hero-sub">
+            Tudo que foi analisado, com cache de {{ stats.total if stats else 0 }} registro(s) e busca por nome ou hash.
+          </p>
+        </div>
+      </div>
+    </section>
+
     {% if stats and stats.total > 0 %}
-      <section class="card stats">
-        <div><strong>{{ stats.total }}</strong><span>analises</span></div>
-        <div><strong>{{ stats.unique_files }}</strong><span>arquivos unicos</span></div>
-        <div class="bad"><strong>{{ stats.malicious }}</strong><span>maliciosos</span></div>
-        <div class="warn"><strong>{{ stats.suspicious }}</strong><span>suspeitos</span></div>
-        <div class="ok"><strong>{{ stats.clean }}</strong><span>limpos</span></div>
+      <section class="card">
+        <div class="sev-strip sev-strip-info"></div>
+        <div class="card-head">
+          <h2><i class="ti ti-chart-bar"></i> Resumo</h2>
+        </div>
+        <div class="hero-stats" style="margin-top: 0.5rem;">
+          <div class="stat-block sev-x"><strong>{{ stats.total }}</strong><span>análises</span></div>
+          <div class="stat-block sev-x"><strong>{{ stats.unique_files }}</strong><span>arquivos únicos</span></div>
+          <div class="stat-block sev-h"><strong>{{ stats.malicious }}</strong><span>maliciosos</span></div>
+          <div class="stat-block sev-m"><strong>{{ stats.suspicious }}</strong><span>suspeitos</span></div>
+          <div class="stat-block sev-l" style="background: rgba(34,197,94,0.08);"><strong style="color: #86efac;">{{ stats.clean }}</strong><span>limpos</span></div>
+        </div>
       </section>
     {% endif %}
 
     <section class="card">
-      <form method="get" action="/history" class="search-form">
-        <input type="text" name="q" placeholder="Buscar por nome ou hash..." value="{{ q }}" />
-        <button type="submit">Buscar</button>
-        {% if q %}<a href="/history" class="muted">limpar</a>{% endif %}
+      <div class="sev-strip sev-strip-info"></div>
+      <div class="card-head"><h2><i class="ti ti-search"></i> Buscar</h2></div>
+      <form method="get" action="/history" class="search-form-new">
+        <div class="search-input-wrap">
+          <i class="ti ti-search"></i>
+          <input type="text" name="q" placeholder="Buscar por nome ou hash..." value="{{ q }}" />
+        </div>
+        <button type="submit" class="btn-primary"><i class="ti ti-arrow-right"></i> Buscar</button>
+        {% if q %}<a href="/history" class="btn-ghost"><i class="ti ti-x"></i> Limpar</a>{% endif %}
       </form>
     </section>
 
     {% if rows %}
       <section class="card">
+        <div class="sev-strip sev-strip-llm"></div>
+        <div class="card-head">
+          <h2><i class="ti ti-list-details"></i> Resultados <span class="muted">({{ rows|length }})</span></h2>
+        </div>
         <table class="history">
           <thead>
             <tr>
@@ -52,14 +87,14 @@
               <tr class="row-{{ r.verdict_level }}">
                 <td><small>{{ r.created_at }}</small></td>
                 <td>
-                  {{ r.original_name }}
-                  <br/><code class="hash">{{ r.sha256[:16] }}...</code>
+                  <strong>{{ r.original_name }}</strong>
+                  <br/><small class="hash">{{ r.sha256[:16] }}…</small>
                 </td>
                 <td>{{ (r.size_bytes / 1024) | round(1) }} KB</td>
                 <td><span class="verdict-pill verdict-{{ r.verdict_level }}">{{ r.verdict_level }}</span></td>
                 <td>{{ r.total_detections }}/{{ r.total_engines }}</td>
                 <td>{{ r.scanned_by or '—' }}</td>
-                <td><a href="/history/{{ r.id }}">ver</a></td>
+                <td><a href="/history/{{ r.id }}" class="btn-ghost btn-small"><i class="ti ti-eye"></i> ver</a></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -67,8 +102,14 @@
       </section>
     {% else %}
       <section class="card">
+        <div class="sev-strip sev-strip-info"></div>
+        <div class="card-head"><h2><i class="ti ti-database-off"></i> Sem resultados</h2></div>
         <p class="muted">
-          {% if q %}Nenhum resultado para "{{ q }}".{% else %}Nenhuma analise registrada ainda. <a href="/">Faca a primeira</a>.{% endif %}
+          {% if q %}
+            Nenhuma análise encontrada para <code>{{ q }}</code>.
+          {% else %}
+            Nenhuma análise registrada ainda. <a href="/">Faça a primeira →</a>
+          {% endif %}
         </p>
       </section>
     {% endif %}

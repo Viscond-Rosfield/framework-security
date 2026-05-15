@@ -2,75 +2,112 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Framework de Seguranca - Analisador de Arquivos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Framework Security — Analisador de Arquivos</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css" />
 </head>
-<body>
-  <main class="container">
-    <header class="topbar">
-      <h1>🛡️ Framework de Seguranca</h1>
+<body class="report-body">
+  <main class="report-wrap">
+
+    <header class="report-topbar">
+      <a href="/" class="brand"><i class="ti ti-shield-lock"></i> Framework Security</a>
       <nav>
-        <a href="/">Analisar</a>
-        <a href="/history">Historico</a>
+        <a href="/"><i class="ti ti-scan"></i> Analisar</a>
+        <a href="/history"><i class="ti ti-history"></i> Histórico</a>
+        {% if user and user != 'anonymous' %}
+          <span class="user-chip"><i class="ti ti-user"></i> {{ user }}</span>
+        {% endif %}
       </nav>
     </header>
 
-    <p class="subtitle">
-      Envie um arquivo para analise contra multiplos servicos de deteccao de malware.
-    </p>
+    <section class="hero hero-clean home-hero">
+      <div class="hero-main">
+        <div class="hero-icon"><i class="ti ti-shield-check"></i></div>
+        <div class="hero-body">
+          <div class="hero-label">Análise estática de malware</div>
+          <h1 class="hero-verdict">Envie um arquivo</h1>
+          <p class="hero-sub">
+            Análise multi-engine (VirusTotal, MetaDefender, YARA, capabilities estáticas) sem executar o arquivo.
+          </p>
+        </div>
+      </div>
+    </section>
 
     {% if stats and stats.total > 0 %}
-      <section class="card stats">
-        <div><strong>{{ stats.total }}</strong><span>analises</span></div>
-        <div><strong>{{ stats.unique_files }}</strong><span>arquivos unicos</span></div>
-        <div class="bad"><strong>{{ stats.malicious }}</strong><span>maliciosos</span></div>
-        <div class="warn"><strong>{{ stats.suspicious }}</strong><span>suspeitos</span></div>
-        <div class="ok"><strong>{{ stats.clean }}</strong><span>limpos</span></div>
+      <section class="card">
+        <div class="sev-strip sev-strip-info"></div>
+        <div class="card-head">
+          <h2><i class="ti ti-chart-bar"></i> Estatísticas do histórico</h2>
+        </div>
+        <div class="hero-stats" style="margin-top: 0.5rem;">
+          <div class="stat-block sev-x"><strong>{{ stats.total }}</strong><span>análises</span></div>
+          <div class="stat-block sev-x"><strong>{{ stats.unique_files }}</strong><span>arquivos únicos</span></div>
+          <div class="stat-block sev-h"><strong>{{ stats.malicious }}</strong><span>maliciosos</span></div>
+          <div class="stat-block sev-m"><strong>{{ stats.suspicious }}</strong><span>suspeitos</span></div>
+          <div class="stat-block sev-l" style="background: rgba(34,197,94,0.08);"><strong style="color: #86efac;">{{ stats.clean }}</strong><span>limpos</span></div>
+        </div>
       </section>
     {% endif %}
 
     <section class="card">
-      <h2>Scanners ativos</h2>
-      <ul class="scanner-list">
+      <div class="sev-strip sev-strip-info"></div>
+      <div class="card-head"><h2><i class="ti ti-plug-connected"></i> Scanners ativos</h2></div>
+      <ul class="scanner-grid">
         <li class="{{ 'on' if scanners.local else 'off' }}">
-          <span class="dot"></span> Analise Local (hash + heuristicas)
+          <i class="ti ti-{{ 'circle-check-filled' if scanners.local else 'circle-x' }}"></i>
+          <div>
+            <strong>Análise Local</strong>
+            <small>hash + heurísticas</small>
+          </div>
         </li>
         <li class="{{ 'on' if scanners.virustotal else 'off' }}">
-          <span class="dot"></span> VirusTotal
-          {% if not scanners.virustotal %}<small>— defina VIRUSTOTAL_API_KEY no .env</small>{% endif %}
+          <i class="ti ti-{{ 'circle-check-filled' if scanners.virustotal else 'circle-x' }}"></i>
+          <div>
+            <strong>VirusTotal</strong>
+            {% if not scanners.virustotal %}<small>defina <code>VIRUSTOTAL_API_KEY</code> no .env</small>{% else %}<small>configurado</small>{% endif %}
+          </div>
         </li>
         <li class="{{ 'on' if scanners.metadefender else 'off' }}">
-          <span class="dot"></span> MetaDefender (OPSWAT)
-          {% if not scanners.metadefender %}<small>— defina METADEFENDER_API_KEY no .env</small>{% endif %}
+          <i class="ti ti-{{ 'circle-check-filled' if scanners.metadefender else 'circle-x' }}"></i>
+          <div>
+            <strong>MetaDefender (OPSWAT)</strong>
+            {% if not scanners.metadefender %}<small>defina <code>METADEFENDER_API_KEY</code> no .env</small>{% else %}<small>configurado</small>{% endif %}
+          </div>
         </li>
       </ul>
       {% if cache_ttl_hours > 0 %}
-        <p class="muted">
-          Cache ativo: arquivos ja analisados nas ultimas {{ cache_ttl_hours }}h
-          retornam direto do banco (sem gastar API).
+        <p class="muted" style="margin-top: 0.8rem;">
+          <i class="ti ti-bolt" style="color: var(--accent);"></i>
+          Cache ativo: arquivos já analisados nas últimas <strong>{{ cache_ttl_hours }}h</strong> retornam direto do banco (sem gastar API).
         </p>
       {% endif %}
     </section>
 
     <section class="card">
-      <form action="/scan" method="post" enctype="multipart/form-data">
+      <div class="sev-strip sev-strip-llm"></div>
+      <div class="card-head"><h2><i class="ti ti-upload"></i> Enviar arquivo</h2></div>
+      <form action="/scan" method="post" enctype="multipart/form-data" class="upload-form">
         <label for="file" class="filelabel">
           <strong>Selecione um arquivo</strong>
-          <small>Tamanho maximo: {{ max_size_mb }} MB</small>
+          <small>Tamanho máximo: <strong>{{ max_size_mb }} MB</strong></small>
         </label>
         <input type="file" id="file" name="file" required />
         <label class="checkbox">
           <input type="checkbox" name="force_refresh" value="1" />
-          Forcar nova analise (ignorar cache)
+          <span>Forçar nova análise (ignorar cache)</span>
         </label>
-        <button type="submit">Analisar</button>
+        <button type="submit" class="btn-primary">
+          <i class="ti ti-scan"></i> Analisar
+        </button>
       </form>
     </section>
 
-    <footer>
+    <footer class="report-footer">
       <small>
         Endpoint JSON: <code>POST /api/scan</code> (multipart com campo <code>file</code>).
-        {% if user and user != 'anonymous' %}Logado como <strong>{{ user }}</strong>.{% endif %}
+        {% if user and user != 'anonymous' %} Logado como <strong>{{ user }}</strong>.{% endif %}
       </small>
     </footer>
   </main>

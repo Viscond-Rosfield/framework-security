@@ -2,449 +2,907 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatorio - {{ report.file.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relatório — {{ report.file.name }}</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css" />
 </head>
-<body>
-  <main class="container">
-    <header class="topbar">
-      <h1>📋 Relatorio de Analise</h1>
+<body class="report-body">
+
+  {# pre-compute helpers #}
+  {% set yara   = report.results.get('static_yara') %}
+  {% set pe     = report.results.get('static_pe') %}
+  {% set pdf_r  = report.results.get('static_pdf') %}
+  {% set office = report.results.get('static_office') %}
+  {% set elf    = report.results.get('static_elf') %}
+  {% set macho  = report.results.get('static_macho') %}
+  {% set apk    = report.results.get('static_apk') %}
+  {% set dis    = report.results.get('static_disasm') %}
+  {% set emb    = report.results.get('static_embedded') %}
+  {% set mem    = report.results.get('static_memory') %}
+  {% set llm    = report.llm_analysis %}
+
+  {% set ns = namespace(high=0, medium=0, low=0, total_caps=0) %}
+  {% for sk in ['static_pe','static_elf','static_macho','static_apk'] %}
+    {% set sc = report.results.get(sk) %}
+    {% if sc and sc.capabilities %}
+      {% for c in sc.capabilities %}
+        {% if c.severity == 'high'   %}{% set ns.high = ns.high + 1 %}{% endif %}
+        {% if c.severity == 'medium' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
+        {% if c.severity == 'low'    %}{% set ns.low = ns.low + 1 %}{% endif %}
+        {% set ns.total_caps = ns.total_caps + 1 %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+  {% if yara and yara.matches %}
+    {% for m in yara.matches %}
+      {% if m.meta.severity == 'high'   %}{% set ns.high = ns.high + 1 %}{% endif %}
+      {% if m.meta.severity == 'medium' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
+      {% if m.meta.severity == 'low'    %}{% set ns.low = ns.low + 1 %}{% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% set scanners_total = report.results|length %}
+  {% set scanners_ok = report.results.values()|selectattr('status','equalto','ok')|list|length %}
+
+  <main class="report-wrap">
+
+    <header class="report-topbar">
+      <a href="/" class="brand"><i class="ti ti-shield-lock"></i> Framework Security</a>
       <nav>
-        <a href="/">Analisar</a>
-        <a href="/history">Historico</a>
+        <a href="/"><i class="ti ti-scan"></i> Analisar</a>
+        <a href="/history"><i class="ti ti-history"></i> Histórico</a>
+        {% if user and user != 'anonymous' %}
+          <span class="user-chip"><i class="ti ti-user"></i> {{ user }}</span>
+        {% endif %}
       </nav>
     </header>
 
+    <section class="hero hero-{{ report.verdict.level }}">
+      <div class="hero-main">
+        <div class="hero-icon">
+          {% if report.verdict.level == 'malicious' %}<i class="ti ti-virus"></i>
+          {% elif report.verdict.level == 'suspicious' %}<i class="ti ti-alert-triangle"></i>
+          {% else %}<i class="ti ti-shield-check"></i>{% endif %}
+        </div>
+        <div class="hero-body">
+          <div class="hero-label">Veredito</div>
+          <h1 class="hero-verdict">
+            {% if report.verdict.level == 'malicious' %}Malicioso
+            {% elif report.verdict.level == 'suspicious' %}Suspeito
+            {% else %}Limpo{% endif %}
+          </h1>
+          <p class="hero-sub">
+            <strong>{{ report.verdict.total_detections }}</strong> detecção(ões)
+            em <strong>{{ report.verdict.total_engines }}</strong> engines
+            {% if report.verdict.flagged_by %}
+              • Sinalizado por <em>{{ report.verdict.flagged_by | join(', ') }}</em>
+            {% elif report.verdict.suspicious_by %}
+              • Suspeito por <em>{{ report.verdict.suspicious_by | join(', ') }}</em>
+            {% endif %}
+          </p>
+        </div>
+        <div class="hero-file">
+          <div class="hero-file-name" title="{{ report.file.name }}">
+            <i class="ti ti-file"></i> {{ report.file.name }}
+          </div>
+          <div class="hero-file-meta">
+            {{ report.file.size_human }}
+            {% if pe and pe.status == 'ok' %} • PE {{ pe.architecture }}
+            {% elif elf and elf.status == 'ok' %} • ELF {{ elf.architecture }}
+            {% elif macho and macho.status == 'ok' %} • Mach-O {{ macho.architecture }}
+            {% elif apk and apk.status == 'ok' %} • APK
+            {% elif pdf_r and pdf_r.status == 'ok' %} • PDF
+            {% elif office and office.status == 'ok' %} • Office {{ office.extension }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-block sev-h"><strong>{{ ns.high }}</strong><span>High</span></div>
+        <div class="stat-block sev-m"><strong>{{ ns.medium }}</strong><span>Medium</span></div>
+        <div class="stat-block sev-l"><strong>{{ ns.low }}</strong><span>Low</span></div>
+        <div class="stat-block sev-x"><strong>{{ scanners_ok }}/{{ scanners_total }}</strong><span>Scanners</span></div>
+      </div>
+    </section>
+
     {% if report._cached %}
-      <section class="card cached-banner">
-        ⚡ Resultado vindo do <strong>cache</strong> (analisado em {{ report._cached_at }}).
-        Para forçar nova analise, volte e marque "Forcar nova analise".
+      <section class="banner banner-info">
+        <i class="ti ti-bolt"></i>
+        Resultado vindo do <strong>cache</strong> (analisado em {{ report._cached_at }}).
+        Para forçar nova análise, volte e marque "Forçar nova análise".
       </section>
     {% endif %}
 
-    <section class="card verdict verdict-{{ report.verdict.level }}">
-      <h2>Veredito: {{ report.verdict.level|upper }}</h2>
-      <p>
-        <strong>{{ report.verdict.total_detections }}</strong> deteccao(oes)
-        em <strong>{{ report.verdict.total_engines }}</strong> engines consultadas.
-      </p>
-      {% if report.verdict.flagged_by %}
-        <p>Sinalizado por: <em>{{ report.verdict.flagged_by | join(', ') }}</em></p>
-      {% endif %}
-      {% if report.verdict.suspicious_by %}
-        <p>Suspeito por: <em>{{ report.verdict.suspicious_by | join(', ') }}</em></p>
-      {% endif %}
-    </section>
+    <div class="report-layout">
 
-    {# ============ LLM ANALYST - prosa em portugues ============ #}
-    {% if report.llm_analysis %}
-      {% set llm = report.llm_analysis %}
-      {% if llm.status == 'ok' %}
-        <section class="card llm-card">
-          <h2>🤖 Análise pelo Claude</h2>
-          <p class="muted">
-            Resumo gerado por IA com base nos resultados dos scanners.
-            <small>Modelo: <code>{{ llm.model }}</code> | tokens: {{ llm.tokens_in }} in / {{ llm.tokens_out }} out</small>
-          </p>
-          <div class="llm-content">{{ llm.html | safe }}</div>
-        </section>
-      {% elif llm.status == 'error' %}
-        <section class="card">
-          <h3>🤖 Análise pelo Claude</h3>
-          <p class="error">Falhou: {{ llm.error }}</p>
-        </section>
-      {% endif %}
-    {% endif %}
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <div class="sidebar-section">
+            <h4>Resumo</h4>
+            <a href="#tldr" class="nav-item"><span><i class="ti ti-list-check"></i> TL;DR</span></a>
+            {% if llm and llm.status == 'ok' %}
+              <a href="#llm" class="nav-item"><span><i class="ti ti-sparkles"></i> Análise IA</span></a>
+            {% endif %}
+          </div>
 
-    {# ============ YARA matches - destaque com regras matched ============ #}
-    {% set yara = report.results.get('static_yara') %}
-    {% if yara and yara.status == 'ok' and yara.total_matches > 0 %}
-      <section class="card static-analysis">
-        <h2>📐 YARA matches ({{ yara.total_matches }})</h2>
-        <p class="muted">Regras YARA que casaram com este arquivo.</p>
-        <p class="summary"><strong>{{ yara._summary }}</strong></p>
-        <div class="capabilities">
-          {% for m in yara.matches %}
-            <details class="cap cap-{{ m.meta.severity }}">
-              <summary>
-                <span class="cap-badge">{{ m.meta.severity|upper }}</span>
-                <span class="cap-label"><code>{{ m.rule }}</code></span>
-                <span class="cap-count">{{ m.meta.category }}</span>
-              </summary>
-              <div class="cap-body">
-                <p>{{ m.meta.description }}</p>
-                {% if m.meta.author %}<p class="muted">Autor: {{ m.meta.author }}</p>{% endif %}
-                {% if m.meta.reference %}<p><a href="{{ m.meta.reference }}" target="_blank" rel="noopener">Referência →</a></p>{% endif %}
-                {% if m.tags %}<p class="muted">Tags: {% for t in m.tags %}<code>{{ t }}</code> {% endfor %}</p>{% endif %}
-                <p class="muted">{{ m.strings_count }} string(s) matched</p>
+          <div class="sidebar-section">
+            <h4>Detecções</h4>
+            {% if yara and yara.status == 'ok' and yara.total_matches > 0 %}
+              <a href="#yara" class="nav-item"><span><i class="ti ti-square-rotated"></i> YARA</span><span class="nav-count">{{ yara.total_matches }}</span></a>
+            {% endif %}
+            {% if report.similar_files %}
+              <a href="#similar" class="nav-item"><span><i class="ti ti-fingerprint"></i> Similares</span><span class="nav-count">{{ report.similar_files|length }}</span></a>
+            {% endif %}
+          </div>
+
+          <div class="sidebar-section">
+            <h4>Estática</h4>
+            {% if pe and pe.status == 'ok' %}<a href="#pe" class="nav-item"><span><i class="ti ti-brand-windows"></i> PE (Windows)</span></a>{% endif %}
+            {% if elf and elf.status == 'ok' %}<a href="#elf" class="nav-item"><span><i class="ti ti-brand-debian"></i> ELF (Linux)</span></a>{% endif %}
+            {% if macho and macho.status == 'ok' %}<a href="#macho" class="nav-item"><span><i class="ti ti-brand-apple"></i> Mach-O (macOS)</span></a>{% endif %}
+            {% if apk and apk.status == 'ok' %}<a href="#apk" class="nav-item"><span><i class="ti ti-brand-android"></i> APK (Android)</span></a>{% endif %}
+            {% if pdf_r and pdf_r.status == 'ok' %}<a href="#pdf" class="nav-item"><span><i class="ti ti-file-type-pdf"></i> PDF</span></a>{% endif %}
+            {% if office and office.status == 'ok' %}<a href="#office" class="nav-item"><span><i class="ti ti-file-text"></i> Office</span></a>{% endif %}
+            {% if dis and dis.status == 'ok' and dis.found %}<a href="#disasm" class="nav-item"><span><i class="ti ti-cpu"></i> Disassembly</span></a>{% endif %}
+            {% if emb and emb.status == 'ok' and emb.embedded_count > 0 %}<a href="#embedded" class="nav-item"><span><i class="ti ti-box-multiple"></i> Embedados</span><span class="nav-count">{{ emb.embedded_count }}</span></a>{% endif %}
+            {% if mem and mem.status == 'ok' %}<a href="#memory" class="nav-item"><span><i class="ti ti-device-desktop"></i> Memory dump</span></a>{% endif %}
+          </div>
+
+          <div class="sidebar-section">
+            <h4>Arquivo</h4>
+            <a href="#file-meta" class="nav-item"><span><i class="ti ti-info-circle"></i> Metadados</span></a>
+            <a href="#scanners" class="nav-item"><span><i class="ti ti-cloud-search"></i> Scanners externos</span></a>
+          </div>
+        </div>
+      </aside>
+
+      <div class="report-content">
+
+        <section id="tldr" class="card card-tldr">
+          <div class="sev-strip sev-strip-info"></div>
+          <div class="card-head"><h2><i class="ti ti-list-check"></i> TL;DR</h2></div>
+          <ul class="tldr-list">
+            <li>
+              <i class="ti ti-{% if report.verdict.level == 'malicious' %}shield-x{% elif report.verdict.level == 'suspicious' %}shield-half-filled{% else %}shield-check{% endif %}"></i>
+              Veredito final: <strong>{{ report.verdict.level|upper }}</strong>
+              — {{ report.verdict.total_detections }} detecção(ões) em {{ report.verdict.total_engines }} engines.
+            </li>
+            {% if yara and yara.total_matches > 0 %}
+              <li><i class="ti ti-square-rotated"></i>
+                <strong>{{ yara.total_matches }}</strong> regra(s) YARA matched:
+                {% for m in yara.matches[:3] %}<code>{{ m.rule }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% if yara.matches|length > 3 %} +{{ yara.matches|length - 3 }}{% endif %}.
+              </li>
+            {% endif %}
+            {% if ns.high > 0 %}
+              <li><i class="ti ti-alert-octagon"></i>
+                <strong>{{ ns.high }}</strong> capacidade(s) de risco alto detectada(s).
+              </li>
+            {% endif %}
+            {% if pe and pe.detected_packers %}
+              <li><i class="ti ti-package"></i>
+                Packer detectado no PE: <strong>{{ pe.detected_packers|join(', ') }}</strong>.
+              </li>
+            {% endif %}
+            {% if apk and apk.detected_packers %}
+              <li><i class="ti ti-package"></i>
+                APK packer / obfuscation: <strong>{{ apk.detected_packers|join(', ') }}</strong>.
+              </li>
+            {% endif %}
+            {% if office and office.has_macros %}
+              <li><i class="ti ti-code"></i>
+                Documento Office com <strong>{{ office.macro_count }}</strong> módulo(s) VBA (macros).
+              </li>
+            {% endif %}
+            {% if emb and emb.embedded_count > 0 %}
+              <li><i class="ti ti-box-multiple"></i>
+                <strong>{{ emb.embedded_count }}</strong> arquivo(s) embedado(s) encontrados via magic bytes.
+              </li>
+            {% endif %}
+            {% if report.similar_files %}
+              <li><i class="ti ti-fingerprint"></i>
+                <strong>{{ report.similar_files|length }}</strong> arquivo(s) similar(es) no histórico (fuzzy hash).
+              </li>
+            {% endif %}
+            {% if report.verdict.level == 'malicious' %}
+              <li><i class="ti ti-flag-3"></i>
+                <strong>Recomendação:</strong> quarentena imediata e busca por IOCs no ambiente.
+              </li>
+            {% elif report.verdict.level == 'suspicious' %}
+              <li><i class="ti ti-flag-3"></i>
+                <strong>Recomendação:</strong> análise dinâmica em sandbox antes de aprovar execução.
+              </li>
+            {% else %}
+              <li><i class="ti ti-circle-check"></i>
+                Nenhum indicador relevante de malware nas verificações executadas.
+              </li>
+            {% endif %}
+          </ul>
+        </section>
+
+        {% if llm and llm.status == 'ok' %}
+          <section id="llm" class="card card-llm">
+            <div class="sev-strip sev-strip-llm"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-sparkles"></i> Análise do Claude</h2>
+              <span class="tag tag-violet">{{ llm.model }}</span>
+            </div>
+            <p class="muted">Resumo gerado por IA com base nos resultados dos scanners.
+              <small>{{ llm.tokens_in }} tokens in / {{ llm.tokens_out }} out</small>
+            </p>
+            <div class="llm-content">{{ llm.html | safe }}</div>
+          </section>
+        {% elif llm and llm.status == 'error' %}
+          <section class="card">
+            <div class="card-head"><h3><i class="ti ti-sparkles"></i> Análise do Claude</h3></div>
+            <p class="error">Falhou: {{ llm.error }}</p>
+          </section>
+        {% endif %}
+
+        {% if yara and yara.status == 'ok' and yara.total_matches > 0 %}
+          <section id="yara" class="card">
+            <div class="sev-strip sev-strip-high"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-square-rotated"></i> YARA matches <span class="muted">({{ yara.total_matches }})</span></h2>
+            </div>
+            <p class="summary"><strong>{{ yara._summary }}</strong></p>
+            <div class="capabilities">
+              {% for m in yara.matches %}
+                <details class="cap cap-{{ m.meta.severity }}">
+                  <summary>
+                    <span class="cap-badge">{{ m.meta.severity|upper }}</span>
+                    <span class="cap-label"><code>{{ m.rule }}</code></span>
+                    <span class="cap-count">{{ m.meta.category }}</span>
+                  </summary>
+                  <div class="cap-body">
+                    <p>{{ m.meta.description }}</p>
+                    {% if m.meta.author %}<p class="muted">Autor: {{ m.meta.author }}</p>{% endif %}
+                    {% if m.meta.reference %}<p><a href="{{ m.meta.reference }}" target="_blank" rel="noopener">Referência <i class="ti ti-external-link"></i></a></p>{% endif %}
+                    {% if m.tags %}<p class="muted">Tags: {% for t in m.tags %}<code>{{ t }}</code> {% endfor %}</p>{% endif %}
+                    <p class="muted">{{ m.strings_count }} string(s) matched</p>
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+          </section>
+        {% elif yara and yara.status == 'error' %}
+          <section class="card">
+            <div class="card-head"><h3><i class="ti ti-square-rotated"></i> YARA</h3></div>
+            <p class="error">Erro: {{ yara.error }}</p>
+          </section>
+        {% endif %}
+
+        {% if dis and dis.status == 'ok' and dis.found %}
+          <section id="disasm" class="card">
+            <div class="sev-strip sev-strip-medium"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-cpu"></i> Disassembly do entry point</h2>
+            </div>
+            <p class="muted">
+              Primeiras {{ dis.instructions_count }} instruções desmontadas via Capstone
+              ({{ dis.architecture }} @ <code>{{ dis.entry_point }}</code>).
+            </p>
+            <p class="summary"><strong>{{ dis._summary }}</strong></p>
+
+            {% if dis.patterns %}
+              <div class="capabilities">
+                {% for p in dis.patterns %}
+                  <details class="cap cap-{{ p.severity }}">
+                    <summary>
+                      <span class="cap-badge">{{ p.severity|upper }}</span>
+                      <span class="cap-label">{{ p.label }}</span>
+                    </summary>
+                    <div class="cap-body"><p>{{ p.description }}</p></div>
+                  </details>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Mostrar instruções ASM</summary>
+              <div class="tech-body">
+                <pre class="asm-listing">{% for i in dis.instructions[:64] %}<span class="asm-addr">{{ '0x%x' % i.address }}</span>  <span class="asm-bytes">{{ i.bytes }}</span>  <span class="asm-mnemonic">{{ i.mnemonic }}</span> <span class="asm-op">{{ i.op_str }}</span>
+{% endfor %}</pre>
+                {% if dis.instructions|length > 64 %}
+                  <p class="muted">… + {{ dis.instructions|length - 64 }} instruções (truncado pra UI)</p>
+                {% endif %}
               </div>
             </details>
-          {% endfor %}
-        </div>
-      </section>
-    {% elif yara and yara.status == 'error' %}
-      <section class="card">
-        <h3>📐 YARA</h3>
-        <p class="error">Erro: {{ yara.error }}</p>
-      </section>
-    {% endif %}
-
-        {# ============ STATIC ANALYSIS (PE) - destaque visual ============ #}
-    {% set pe = report.results.get('static_pe') %}
-    {% if pe and pe.status == 'ok' %}
-      <section class="card static-analysis">
-        <h2>🔬 O que esse arquivo pode fazer</h2>
-        <p class="muted">
-          Análise estática — sem executar o arquivo. Leitura da estrutura interna do PE.
-        </p>
-
-        <p class="summary"><strong>{{ pe._summary }}</strong></p>
-
-        {# Capabilities como cards #}
-        {% if pe.capabilities %}
-          <div class="capabilities">
-            {% for c in pe.capabilities %}
-              <details class="cap cap-{{ c.severity }}">
-                <summary>
-                  <span class="cap-badge">{{ c.severity|upper }}</span>
-                  <span class="cap-label">{{ c.label }}</span>
-                  <span class="cap-count">{{ c.match_count }} função(ões)</span>
-                </summary>
-                <div class="cap-body">
-                  <p>{{ c.description }}</p>
-                  <p class="muted"><strong>Funções detectadas:</strong></p>
-                  <ul class="func-list">
-                    {% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}
-                  </ul>
-                </div>
-              </details>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="muted">Nenhuma capacidade suspeita mapeada nos imports.</p>
+          </section>
         {% endif %}
 
-        {# IOCs extraidos #}
-        {% set iocs = pe.iocs %}
-        {% if iocs and (iocs.urls or iocs.ips or iocs.domains or iocs.registry or iocs.mutex) %}
-          <h3 style="margin-top: 1.5rem;">📡 IOCs extraídos</h3>
-          <div class="iocs">
-            {% if iocs.urls %}
-              <div><strong>URLs ({{ iocs.urls|length }}):</strong>
-                <ul>{% for u in iocs.urls %}<li><code>{{ u }}</code></li>{% endfor %}</ul>
-              </div>
-            {% endif %}
-            {% if iocs.ips %}
-              <div><strong>IPs ({{ iocs.ips|length }}):</strong>
-                <ul>{% for i in iocs.ips %}<li><code>{{ i }}</code></li>{% endfor %}</ul>
-              </div>
-            {% endif %}
-            {% if iocs.domains %}
-              <div><strong>Domínios ({{ iocs.domains|length }}):</strong>
-                <ul>{% for d in iocs.domains %}<li><code>{{ d }}</code></li>{% endfor %}</ul>
-              </div>
-            {% endif %}
-            {% if iocs.registry %}
-              <div><strong>Registry keys ({{ iocs.registry|length }}):</strong>
-                <ul>{% for r in iocs.registry %}<li><code>{{ r }}</code></li>{% endfor %}</ul>
-              </div>
-            {% endif %}
-            {% if iocs.mutex %}
-              <div><strong>Mutex ({{ iocs.mutex|length }}):</strong>
-                <ul>{% for m in iocs.mutex %}<li><code>{{ m }}</code></li>{% endfor %}</ul>
-              </div>
-            {% endif %}
-          </div>
-        {% endif %}
-
-        {# Accordion tecnico expansivel #}
-        <details class="tech-details">
-          <summary>📐 Mostrar detalhes técnicos do PE</summary>
-          <div class="tech-body">
-            <h4>Metadados</h4>
-            <table class="meta">
-              <tr><th>Tipo</th><td>{{ pe.file_type }}</td></tr>
-              <tr><th>Arquitetura</th><td>{{ pe.architecture }}</td></tr>
-              <tr><th>Subsystem</th><td>{{ pe.subsystem }}</td></tr>
-              <tr><th>Assinado digitalmente</th><td>{{ "✅ Sim" if pe.is_signed else "❌ Não" }}</td></tr>
-              {% if pe.detected_packers %}
-                <tr><th>Packer detectado</th><td>{{ pe.detected_packers | join(', ') }}</td></tr>
-              {% endif %}
-            </table>
-
-            {% if pe.flags %}
-              <h4>Flags</h4>
-              <ul>{% for f in pe.flags %}<li>{{ f }}</li>{% endfor %}</ul>
-            {% endif %}
-
-            <h4>Seções ({{ pe.sections|length }})</h4>
-            <table class="sections">
-              <thead><tr><th>Nome</th><th>Raw size</th><th>Virtual</th><th>Entropia</th></tr></thead>
-              <tbody>
-                {% for s in pe.sections %}
-                  <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
-                    <td><code>{{ s.name }}</code></td>
-                    <td>{{ s.raw_size }}</td>
-                    <td>{{ s.virtual_size }}</td>
-                    <td>{{ s.entropy }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-
-            <h4>Imports ({{ pe.imports|length }} DLLs)</h4>
-            {% for imp in pe.imports %}
-              <details class="dll-imports">
-                <summary><strong>{{ imp.dll }}</strong> <small>({{ imp.count }} funções)</small></summary>
-                <ul class="func-list">
-                  {% for f in imp.functions %}<li><code>{{ f }}</code></li>{% endfor %}
-                </ul>
-              </details>
-            {% endfor %}
-
-            {% if pe.exports %}
-              <h4>Exports ({{ pe.exports|length }})</h4>
-              <ul class="func-list">
-                {% for e in pe.exports %}<li><code>{{ e }}</code></li>{% endfor %}
-              </ul>
-            {% endif %}
-          </div>
-        </details>
-      </section>
-    {% elif pe and pe.status == 'skipped' %}
-      {# silenciamos o card "skipped" do PE - so mostramos se PDF e Office tambem foram skip #}
-    {% endif %}
-
-    {# ============ STATIC ANALYSIS - ELF (Linux) ============ #}
-    {% set elf = report.results.get('static_elf') %}
-    {% if elf and elf.status == 'ok' %}
-      <section class="card static-analysis">
-        <h2>🐧 Análise do binário Linux (ELF)</h2>
-        <p class="muted">Estrutura interna do ELF — sem executar.</p>
-        <p class="summary"><strong>{{ elf._summary }}</strong></p>
-
-        <table class="meta">
-          <tr><th>Tipo</th><td>{{ elf.file_type }}</td></tr>
-          <tr><th>Arquitetura</th><td>{{ elf.architecture }} ({{ elf.bits }})</td></tr>
-          {% if elf.interpreter %}<tr><th>Interpreter</th><td><code>{{ elf.interpreter }}</code></td></tr>{% endif %}
-          <tr><th>Stripped</th><td>{{ "✅ Sim" if elf.is_stripped else "❌ Não" }}</td></tr>
-          <tr><th>PIE</th><td>{{ "✅" if elf.mitigations.pie else "❌" }}</td></tr>
-          <tr><th>NX (stack non-exec)</th><td>{{ "✅" if elf.mitigations.nx else "❌" }}</td></tr>
-          <tr><th>RELRO</th><td>{{ "✅" if elf.mitigations.relro else "❌" }}</td></tr>
-          <tr><th>Stack canary</th><td>{{ "✅" if elf.mitigations.canary else "❌" }}</td></tr>
-        </table>
-
-        {% if elf.flags %}
-          <ul>{% for f in elf.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>
-        {% endif %}
-
-        {% if elf.capabilities %}
-          <div class="capabilities">
-            {% for c in elf.capabilities %}
-              <details class="cap cap-{{ c.severity }}">
-                <summary>
-                  <span class="cap-badge">{{ c.severity|upper }}</span>
-                  <span class="cap-label">{{ c.label }}</span>
-                  <span class="cap-count">{{ c.match_count }} symbol(s)</span>
-                </summary>
-                <div class="cap-body">
-                  <p>{{ c.description }}</p>
-                  <ul class="func-list">
-                    {% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}
-                  </ul>
-                </div>
-              </details>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        {% if elf.iocs and (elf.iocs.urls or elf.iocs.ips or elf.iocs.domains) %}
-          <h3 style="margin-top: 1rem;">📡 IOCs extraídos</h3>
-          <div class="iocs">
-            {% for cat in ['urls','ips','domains','paths'] %}
-              {% if elf.iocs[cat] %}
-                <div><strong>{{ cat|capitalize }} ({{ elf.iocs[cat]|length }})</strong>
-                  <ul>{% for v in elf.iocs[cat] %}<li><code>{{ v }}</code></li>{% endfor %}</ul>
-                </div>
-              {% endif %}
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <details class="tech-details">
-          <summary>📐 Detalhes técnicos do ELF</summary>
-          <div class="tech-body">
-            <h4>Bibliotecas necessárias ({{ elf.needed_libs|length }})</h4>
-            <ul class="func-list">
-              {% for lib in elf.needed_libs %}<li><code>{{ lib }}</code></li>{% endfor %}
-            </ul>
-
-            {% if elf.rpath or elf.runpath %}
-              <h4>RPATH / RUNPATH</h4>
-              <ul>
-                {% for p in elf.rpath %}<li class="error">RPATH: <code>{{ p }}</code></li>{% endfor %}
-                {% for p in elf.runpath %}<li>RUNPATH: <code>{{ p }}</code></li>{% endfor %}
-              </ul>
-            {% endif %}
-
-            <h4>Seções ({{ elf.sections|length }})</h4>
-            <table class="sections">
-              <thead><tr><th>Nome</th><th>Flags</th><th>Tamanho</th><th>Entropia</th></tr></thead>
-              <tbody>
-                {% for s in elf.sections %}
-                  <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
-                    <td><code>{{ s.name }}</code></td>
-                    <td><code>{{ s.flags }}</code></td>
-                    <td>{{ s.size }}</td>
-                    <td>{{ s.entropy }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </section>
-    {% endif %}
-
-        {# ============ STATIC ANALYSIS - PDF ============ #}
-    {% set pdf = report.results.get('static_pdf') %}
-    {% if pdf and pdf.status == 'ok' %}
-      <section class="card static-analysis">
-        <h2>📄 Análise do PDF</h2>
-        <p class="muted">Estrutura interna do PDF — sem executar.</p>
-        <p class="summary"><strong>{{ pdf._summary }}</strong></p>
-
-        {% if pdf.flags %}
-          <ul>
-            {% for f in pdf.flags %}<li class="error">{{ f }}</li>{% endfor %}
-          </ul>
-        {% endif %}
-
-        {% if pdf.findings %}
-          <div class="capabilities">
-            {% for f in pdf.findings %}
-              <div class="cap cap-{{ f.severity }}">
-                <span class="cap-badge">{{ f.severity|upper }}</span>
-                <span class="cap-label">{{ f.label }}</span>
-                <span class="cap-count">{{ f.count }}x <code>{{ f.keyword }}</code></span>
-              </div>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <details class="tech-details">
-          <summary>📐 Detalhes técnicos do PDF</summary>
-          <div class="tech-body">
-            <table class="meta">
-              <tr><th>Versão PDF</th><td>{{ pdf.version }}</td></tr>
-              <tr><th>Objetos</th><td>{{ pdf.num_objects }}</td></tr>
-              <tr><th>Streams</th><td>{{ pdf.num_streams }}</td></tr>
-              <tr><th>Encriptado</th><td>{{ "✅ Sim" if pdf.is_encrypted else "❌ Não" }}</td></tr>
-            </table>
-          </div>
-        </details>
-      </section>
-    {% endif %}
-
-    {# ============ STATIC ANALYSIS - OFFICE ============ #}
-    {% set office = report.results.get('static_office') %}
-    {% if office and office.status == 'ok' %}
-      <section class="card static-analysis">
-        <h2>📑 Análise do documento Office</h2>
-        <p class="muted">Macros VBA e indicadores estáticos.</p>
-        <p class="summary"><strong>{{ office._summary }}</strong></p>
-
-        <table class="meta">
-          <tr><th>Macros presentes</th><td>{{ "✅ Sim" if office.has_macros else "❌ Não" }}</td></tr>
-          {% if office.has_macros %}
-            <tr><th>Qtde de módulos VBA</th><td>{{ office.macro_count }}</td></tr>
-          {% endif %}
-          {% if office.extension %}
-            <tr><th>Extensão</th><td><code>{{ office.extension }}</code></td></tr>
-          {% endif %}
-        </table>
-
-        {% if office.flags %}
-          <ul>
-            {% for f in office.flags %}<li class="error">{{ f }}</li>{% endfor %}
-          </ul>
-        {% endif %}
-
-        {% if office.findings %}
-          <div class="capabilities">
-            {% for f in office.findings %}
-              <div class="cap cap-{{ f.severity }}">
-                <span class="cap-badge">{{ f.severity|upper }}</span>
-                <span class="cap-label">{{ f.label }}</span>
-                <span class="cap-count">{{ f.count }}x <code>{{ f.keyword }}</code></span>
-              </div>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        {% if office.sample_code %}
-          <details class="tech-details">
-            <summary>📐 Amostra do código VBA (primeiros 800 chars)</summary>
-            <div class="tech-body">
-              <pre style="white-space: pre-wrap; word-break: break-all; font-size: 0.8rem;">{{ office.sample_code }}</pre>
+        {% if mem and mem.status == 'ok' %}
+          <section id="memory" class="card">
+            <div class="sev-strip sev-strip-medium"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-device-desktop"></i> Memory dump triage</h2>
             </div>
-          </details>
+            <p class="muted">Formato identificado e comandos sugeridos para análise (Volatility/Rekall).</p>
+            <p class="summary"><strong>{{ mem._summary }}</strong></p>
+
+            <table class="meta">
+              <tr><th>Formato</th><td>{{ mem.format }}</td></tr>
+              {% if mem.architecture %}<tr><th>Arquitetura</th><td>{{ mem.architecture }}</td></tr>{% endif %}
+              {% if mem.windows_version %}<tr><th>Windows version</th><td>{{ mem.windows_version }}</td></tr>{% endif %}
+              {% if mem.dump_type %}<tr><th>Dump type</th><td>{{ mem.dump_type }}</td></tr>{% endif %}
+              {% if mem.num_cpus %}<tr><th>CPUs</th><td>{{ mem.num_cpus }}</td></tr>{% endif %}
+              {% if mem.bug_check_code %}<tr><th>Bug check</th><td><code>{{ mem.bug_check_code }}</code></td></tr>{% endif %}
+              {% if mem.timestamp %}<tr><th>Timestamp</th><td>{{ mem.timestamp }}</td></tr>{% endif %}
+              <tr><th>Tamanho</th><td>{{ mem.size_human }}</td></tr>
+            </table>
+
+            {% if mem.flags %}<ul>{% for f in mem.flags %}<li class="muted">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            {% if mem.suggestions %}
+              <h3 class="sub"><i class="ti ti-terminal-2"></i> Comandos sugeridos</h3>
+              <p class="muted">Rode com <code>vol</code> (Volatility 3) localmente após baixar o dump:</p>
+              <pre class="asm-listing">{% for s in mem.suggestions %}<span class="asm-mnemonic">$</span> <span class="asm-op">{{ s }}</span>
+{% endfor %}</pre>
+            {% endif %}
+          </section>
         {% endif %}
-      </section>
-    {% endif %}
 
-    <section class="card">
-      <h2>Arquivo</h2>
-      <table class="meta">
-        <tr><th>Nome</th><td>{{ report.file.name }}</td></tr>
-        <tr><th>Tamanho</th><td>{{ report.file.size_human }} ({{ report.file.size_bytes }} bytes)</td></tr>
-        <tr><th>MD5</th><td><code>{{ report.file.md5 }}</code></td></tr>
-        <tr><th>SHA1</th><td><code>{{ report.file.sha1 }}</code></td></tr>
-        <tr><th>SHA256</th><td><code>{{ report.file.sha256 }}</code></td></tr>
-      </table>
-    </section>
+        {% if apk and apk.status == 'ok' %}
+          <section id="apk" class="card">
+            <div class="sev-strip sev-strip-{% if apk.detected_packers or apk.flags %}high{% else %}medium{% endif %}"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-brand-android"></i> Análise do APK (Android)</h2>
+            </div>
+            <p class="muted">Permissões, manifesto, DEX, native libs e packers.</p>
+            <p class="summary"><strong>{{ apk._summary }}</strong></p>
 
-    {# Outros scanners (sem o static_pe que ja foi destacado acima) #}
-    {% for name, data in report.results.items() if name not in ('static_pe', 'static_pdf', 'static_office', 'static_elf', 'static_yara') %}
-      <section class="card scanner-result">
-        <h3>{{ name }}</h3>
+            <table class="meta">
+              <tr><th>Pacote</th><td><code>{{ apk.package }}</code></td></tr>
+              {% if apk.app_name %}<tr><th>Nome do app</th><td>{{ apk.app_name }}</td></tr>{% endif %}
+              {% if apk.version_name %}<tr><th>Versão</th><td>{{ apk.version_name }} (code: {{ apk.version_code }})</td></tr>{% endif %}
+              {% if apk.min_sdk %}<tr><th>SDK mínimo / target</th><td>{{ apk.min_sdk }} / {{ apk.target_sdk }}</td></tr>{% endif %}
+              {% if apk.main_activity %}<tr><th>Main activity</th><td><code>{{ apk.main_activity }}</code></td></tr>{% endif %}
+              <tr><th>Permissões</th><td>{{ apk.permissions_count }}</td></tr>
+              <tr><th>Activities / Services / Receivers</th><td>{{ apk.activities_count }} / {{ apk.services|length }} / {{ apk.receivers|length }}</td></tr>
+              <tr><th>DEX files</th><td>{{ apk.dex_files|length }} ({{ apk.dex_files|join(', ') }})</td></tr>
+              <tr><th>Native libs (.so)</th><td>{{ apk.native_libs|length }}</td></tr>
+              {% if apk.detected_packers %}<tr><th>Packer detectado</th><td class="error">{{ apk.detected_packers|join(', ') }}</td></tr>{% endif %}
+            </table>
 
-        {% if data.status == 'skipped' %}
-          <p class="muted">Ignorado: {{ data.reason }}</p>
+            {% if apk.flags %}<ul>{% for f in apk.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
 
-        {% elif data.status == 'error' %}
-          <p class="error">Erro: {{ data.error }}</p>
+            {% if apk.capabilities %}
+              <div class="capabilities">
+                {% for c in apk.capabilities %}
+                  <details class="cap cap-{{ c.severity }}">
+                    <summary>
+                      <span class="cap-badge">{{ c.severity|upper }}</span>
+                      <span class="cap-label">{{ c.label }}</span>
+                      <span class="cap-count">{{ c.match_count }} permissão(ões)</span>
+                    </summary>
+                    <div class="cap-body">
+                      <p>{{ c.description }}</p>
+                      <ul class="func-list">
+                        {% for p in c.permissions %}<li><code>{{ p.permission }}</code> — {{ p.label }}</li>{% endfor %}
+                      </ul>
+                    </div>
+                  </details>
+                {% endfor %}
+              </div>
+            {% endif %}
 
-        {% else %}
-          {% if data.found is defined and not data.found %}
-            <p class="muted">{{ data.message or 'Hash nao encontrado.' }}</p>
-          {% endif %}
-
-          <ul class="kv">
-            {% if data.detections is defined %}<li><strong>Deteccoes:</strong> {{ data.detections }}</li>{% endif %}
-            {% if data.suspicious is defined and data.suspicious %}<li><strong>Suspeitos:</strong> {{ data.suspicious }}</li>{% endif %}
-            {% if data.engines is defined %}<li><strong>Engines:</strong> {{ data.engines }}</li>{% endif %}
-            {% if data.verdict %}<li><strong>Veredito:</strong> {{ data.verdict }}</li>{% endif %}
-            {% if data.threat_score is defined and data.threat_score is not none %}<li><strong>Threat score:</strong> {{ data.threat_score }}</li>{% endif %}
-            {% if data.threat_level is defined and data.threat_level is not none %}<li><strong>Threat level:</strong> {{ data.threat_level }}</li>{% endif %}
-            {% if data.file_type %}<li><strong>Tipo:</strong> {{ data.file_type }}</li>{% endif %}
-            {% if data.type_description %}<li><strong>Tipo (VT):</strong> {{ data.type_description }}</li>{% endif %}
-            {% if data.reputation is defined %}<li><strong>Reputacao:</strong> {{ data.reputation }}</li>{% endif %}
-          </ul>
-
-          {% if data.flags %}
-            <p><strong>Sinalizacoes:</strong></p>
-            <ul>
-              {% for f in data.flags %}<li>{{ f }}</li>{% endfor %}
-            </ul>
-          {% endif %}
-
-          {% if data.permalink %}
-            <p><a href="{{ data.permalink }}" target="_blank" rel="noopener">Ver relatorio completo &rarr;</a></p>
-          {% endif %}
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Detalhes técnicos do APK</summary>
+              <div class="tech-body">
+                <h4>Todas permissões ({{ apk.permissions|length }})</h4>
+                <ul class="func-list">{% for p in apk.permissions %}<li><code>{{ p }}</code></li>{% endfor %}</ul>
+                {% if apk.native_libs %}
+                  <h4>Native libraries ({{ apk.native_libs|length }})</h4>
+                  <ul class="func-list">{% for l in apk.native_libs %}<li><code>{{ l }}</code></li>{% endfor %}</ul>
+                {% endif %}
+                {% if apk.activities %}
+                  <h4>Activities ({{ apk.activities_count }})</h4>
+                  <ul class="func-list">{% for a in apk.activities %}<li><code>{{ a }}</code></li>{% endfor %}</ul>
+                {% endif %}
+                {% if apk.services %}
+                  <h4>Services</h4>
+                  <ul class="func-list">{% for s in apk.services %}<li><code>{{ s }}</code></li>{% endfor %}</ul>
+                {% endif %}
+                {% if apk.receivers %}
+                  <h4>Broadcast Receivers</h4>
+                  <ul class="func-list">{% for r in apk.receivers %}<li><code>{{ r }}</code></li>{% endfor %}</ul>
+                {% endif %}
+              </div>
+            </details>
+          </section>
         {% endif %}
-      </section>
-    {% endfor %}
+
+        {% if macho and macho.status == 'ok' %}
+          <section id="macho" class="card">
+            <div class="sev-strip sev-strip-medium"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-brand-apple"></i> Análise do binário Mach-O (macOS)</h2>
+            </div>
+            <p class="muted">Estrutura interna do Mach-O — sem executar.</p>
+            <p class="summary"><strong>{{ macho._summary }}</strong></p>
+
+            <table class="meta">
+              <tr><th>Tipo</th><td>{{ macho.file_type }}</td></tr>
+              <tr><th>Arquitetura</th><td>{{ macho.architecture }} ({{ macho.bits }})</td></tr>
+              {% if macho.is_universal %}<tr><th>Universal binary</th><td>Sim ({{ macho.fat_archs|length }} archs)</td></tr>{% endif %}
+              <tr><th>Code signed</th><td>{{ "Sim" if macho.is_signed else "Não" }}</td></tr>
+              <tr><th>PIE (ASLR)</th><td>{{ "Sim" if macho.has_pie else "Não" }}</td></tr>
+              {% if macho.is_encrypted %}<tr><th>Encriptado</th><td class="error">Sim</td></tr>{% endif %}
+              <tr><th>Load commands</th><td>{{ macho.ncmds }}</td></tr>
+              <tr><th>Imports</th><td>{{ macho.imports_count }} symbols</td></tr>
+            </table>
+
+            {% if macho.flags %}<ul>{% for f in macho.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            {% if macho.capabilities %}
+              <div class="capabilities">
+                {% for c in macho.capabilities %}
+                  <details class="cap cap-{{ c.severity }}">
+                    <summary>
+                      <span class="cap-badge">{{ c.severity|upper }}</span>
+                      <span class="cap-label">{{ c.label }}</span>
+                      <span class="cap-count">{{ c.match_count }} symbol(s)</span>
+                    </summary>
+                    <div class="cap-body">
+                      <p>{{ c.description }}</p>
+                      <ul class="func-list">{% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
+                    </div>
+                  </details>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Detalhes técnicos do Mach-O</summary>
+              <div class="tech-body">
+                <h4>Dylibs necessárias ({{ macho.needed_dylibs|length }})</h4>
+                <ul class="func-list">{% for d in macho.needed_dylibs %}<li><code>{{ d }}</code></li>{% endfor %}</ul>
+                {% if macho.rpaths %}
+                  <h4>RPATH ({{ macho.rpaths|length }})</h4>
+                  <ul>{% for r in macho.rpaths %}<li class="error"><code>{{ r }}</code></li>{% endfor %}</ul>
+                {% endif %}
+                {% if macho.segments %}
+                  <h4>Segmentos ({{ macho.segments|length }})</h4>
+                  <table class="sections">
+                    <thead><tr><th>Nome</th><th>VM Addr</th><th>VM Size</th><th>Init Prot</th></tr></thead>
+                    <tbody>
+                      {% for s in macho.segments %}
+                        <tr>
+                          <td><code>{{ s.name }}</code></td>
+                          <td><code>0x{{ '%x' % s.vmaddr }}</code></td>
+                          <td>{{ s.vmsize }}</td>
+                          <td><code>{{ '%x' % s.initprot }}</code></td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% endif %}
+                {% if macho.is_universal %}
+                  <h4>Architectures no Fat binary</h4>
+                  <ul>{% for a in macho.fat_archs %}<li><code>{{ a.cputype }}</code> — offset 0x{{ '%x' % a.offset }}, size {{ a.size }}</li>{% endfor %}</ul>
+                {% endif %}
+              </div>
+            </details>
+          </section>
+        {% endif %}
+
+        {% if elf and elf.status == 'ok' %}
+          <section id="elf" class="card">
+            <div class="sev-strip sev-strip-medium"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-brand-debian"></i> Análise do binário Linux (ELF)</h2>
+            </div>
+            <p class="muted">Estrutura interna do ELF — sem executar.</p>
+            <p class="summary"><strong>{{ elf._summary }}</strong></p>
+
+            <table class="meta">
+              <tr><th>Tipo</th><td>{{ elf.file_type }}</td></tr>
+              <tr><th>Arquitetura</th><td>{{ elf.architecture }} ({{ elf.bits }})</td></tr>
+              {% if elf.interpreter %}<tr><th>Interpreter</th><td><code>{{ elf.interpreter }}</code></td></tr>{% endif %}
+              <tr><th>Stripped</th><td>{{ "Sim" if elf.is_stripped else "Não" }}</td></tr>
+              <tr><th>PIE</th><td>{{ "Sim" if elf.mitigations.pie else "Não" }}</td></tr>
+              <tr><th>NX (stack non-exec)</th><td>{{ "Sim" if elf.mitigations.nx else "Não" }}</td></tr>
+              <tr><th>RELRO</th><td>{{ "Sim" if elf.mitigations.relro else "Não" }}</td></tr>
+              <tr><th>Stack canary</th><td>{{ "Sim" if elf.mitigations.canary else "Não" }}</td></tr>
+            </table>
+
+            {% if elf.flags %}<ul>{% for f in elf.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            {% if elf.capabilities %}
+              <div class="capabilities">
+                {% for c in elf.capabilities %}
+                  <details class="cap cap-{{ c.severity }}">
+                    <summary>
+                      <span class="cap-badge">{{ c.severity|upper }}</span>
+                      <span class="cap-label">{{ c.label }}</span>
+                      <span class="cap-count">{{ c.match_count }} symbol(s)</span>
+                    </summary>
+                    <div class="cap-body">
+                      <p>{{ c.description }}</p>
+                      <ul class="func-list">{% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
+                    </div>
+                  </details>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if elf.iocs and (elf.iocs.urls or elf.iocs.ips or elf.iocs.domains) %}
+              <h3 class="sub"><i class="ti ti-radar"></i> IOCs extraídos</h3>
+              <div class="iocs">
+                {% for cat in ['urls','ips','domains','paths'] %}
+                  {% if elf.iocs[cat] %}
+                    <div>
+                      <strong>{{ cat|capitalize }} ({{ elf.iocs[cat]|length }})</strong>
+                      <ul>{% for v in elf.iocs[cat] %}<li><code>{{ v }}</code></li>{% endfor %}</ul>
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Detalhes técnicos do ELF</summary>
+              <div class="tech-body">
+                <h4>Bibliotecas necessárias ({{ elf.needed_libs|length }})</h4>
+                <ul class="func-list">{% for lib in elf.needed_libs %}<li><code>{{ lib }}</code></li>{% endfor %}</ul>
+                {% if elf.rpath or elf.runpath %}
+                  <h4>RPATH / RUNPATH</h4>
+                  <ul>
+                    {% for p in elf.rpath %}<li class="error">RPATH: <code>{{ p }}</code></li>{% endfor %}
+                    {% for p in elf.runpath %}<li>RUNPATH: <code>{{ p }}</code></li>{% endfor %}
+                  </ul>
+                {% endif %}
+                <h4>Seções ({{ elf.sections|length }})</h4>
+                <table class="sections">
+                  <thead><tr><th>Nome</th><th>Flags</th><th>Tamanho</th><th>Entropia</th></tr></thead>
+                  <tbody>
+                    {% for s in elf.sections %}
+                      <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
+                        <td><code>{{ s.name }}</code></td>
+                        <td><code>{{ s.flags }}</code></td>
+                        <td>{{ s.size }}</td>
+                        <td>{{ s.entropy }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+        {% endif %}
+
+        {% if emb and emb.status == 'ok' and emb.embedded_count > 0 %}
+          <section id="embedded" class="card">
+            <div class="sev-strip sev-strip-high"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-box-multiple"></i> Arquivos embedados <span class="muted">({{ emb.embedded_count }})</span></h2>
+            </div>
+            <p class="muted">Magic bytes encontrados em offsets além do início do arquivo. Tipo do arquivo: <code>{{ emb.own_type }}</code>.</p>
+            <p class="summary"><strong>{{ emb._summary }}</strong></p>
+
+            {% if emb.flags %}<ul>{% for f in emb.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            <table class="sections">
+              <thead><tr><th>Severidade</th><th>Offset</th><th>Tipo</th><th>Detectado</th></tr></thead>
+              <tbody>
+                {% for f in emb.findings %}
+                  <tr>
+                    <td><span class="cap-badge sev-{{ f.severity }}">{{ f.severity|upper }}</span></td>
+                    <td><code>{{ f.offset_hex }}</code></td>
+                    <td><code>{{ f.type }}</code></td>
+                    <td>{{ f.label }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+        {% endif %}
+
+        {% if pe and pe.status == 'ok' %}
+          <section id="pe" class="card">
+            <div class="sev-strip sev-strip-{% if pe.detected_packers %}high{% else %}medium{% endif %}"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-brand-windows"></i> Análise PE (Windows)</h2>
+            </div>
+            <p class="muted">Análise estática — sem executar o arquivo. Leitura da estrutura interna do PE.</p>
+            <p class="summary"><strong>{{ pe._summary }}</strong></p>
+
+            {% if pe.capabilities %}
+              <div class="capabilities">
+                {% for c in pe.capabilities %}
+                  <details class="cap cap-{{ c.severity }}">
+                    <summary>
+                      <span class="cap-badge">{{ c.severity|upper }}</span>
+                      <span class="cap-label">{{ c.label }}</span>
+                      <span class="cap-count">{{ c.match_count }} função(ões)</span>
+                    </summary>
+                    <div class="cap-body">
+                      <p>{{ c.description }}</p>
+                      <p class="muted"><strong>Funções detectadas:</strong></p>
+                      <ul class="func-list">{% for f in c.matched_functions %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
+                    </div>
+                  </details>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="muted">Nenhuma capacidade suspeita mapeada nos imports.</p>
+            {% endif %}
+
+            {% set iocs = pe.iocs %}
+            {% if iocs and (iocs.urls or iocs.ips or iocs.domains or iocs.registry or iocs.mutex) %}
+              <h3 class="sub"><i class="ti ti-radar"></i> IOCs extraídos</h3>
+              <div class="iocs">
+                {% if iocs.urls %}<div><strong>URLs ({{ iocs.urls|length }})</strong><ul>{% for u in iocs.urls %}<li><code>{{ u }}</code></li>{% endfor %}</ul></div>{% endif %}
+                {% if iocs.ips %}<div><strong>IPs ({{ iocs.ips|length }})</strong><ul>{% for i in iocs.ips %}<li><code>{{ i }}</code></li>{% endfor %}</ul></div>{% endif %}
+                {% if iocs.domains %}<div><strong>Domínios ({{ iocs.domains|length }})</strong><ul>{% for d in iocs.domains %}<li><code>{{ d }}</code></li>{% endfor %}</ul></div>{% endif %}
+                {% if iocs.registry %}<div><strong>Registry keys ({{ iocs.registry|length }})</strong><ul>{% for r in iocs.registry %}<li><code>{{ r }}</code></li>{% endfor %}</ul></div>{% endif %}
+                {% if iocs.mutex %}<div><strong>Mutex ({{ iocs.mutex|length }})</strong><ul>{% for m in iocs.mutex %}<li><code>{{ m }}</code></li>{% endfor %}</ul></div>{% endif %}
+              </div>
+            {% endif %}
+
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Detalhes técnicos do PE</summary>
+              <div class="tech-body">
+                <h4>Metadados</h4>
+                <table class="meta">
+                  <tr><th>Tipo</th><td>{{ pe.file_type }}</td></tr>
+                  <tr><th>Arquitetura</th><td>{{ pe.architecture }}</td></tr>
+                  <tr><th>Subsystem</th><td>{{ pe.subsystem }}</td></tr>
+                  <tr><th>Assinado digitalmente</th><td>{{ "Sim" if pe.is_signed else "Não" }}</td></tr>
+                  {% if pe.detected_packers %}<tr><th>Packer detectado</th><td class="error">{{ pe.detected_packers|join(', ') }}</td></tr>{% endif %}
+                </table>
+
+                {% if pe.flags %}<h4>Flags</h4><ul>{% for f in pe.flags %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+                <h4>Seções ({{ pe.sections|length }})</h4>
+                <table class="sections">
+                  <thead><tr><th>Nome</th><th>Raw size</th><th>Virtual</th><th>Entropia</th></tr></thead>
+                  <tbody>
+                    {% for s in pe.sections %}
+                      <tr class="{{ 'high-entropy' if s.entropy >= 7.0 else '' }}">
+                        <td><code>{{ s.name }}</code></td><td>{{ s.raw_size }}</td><td>{{ s.virtual_size }}</td><td>{{ s.entropy }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+                <h4>Imports ({{ pe.imports|length }} DLLs)</h4>
+                {% for imp in pe.imports %}
+                  <details class="dll-imports">
+                    <summary><strong>{{ imp.dll }}</strong> <small>({{ imp.count }} funções)</small></summary>
+                    <ul class="func-list">{% for f in imp.functions %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
+                  </details>
+                {% endfor %}
+
+                {% if pe.exports %}
+                  <h4>Exports ({{ pe.exports|length }})</h4>
+                  <ul class="func-list">{% for e in pe.exports %}<li><code>{{ e }}</code></li>{% endfor %}</ul>
+                {% endif %}
+              </div>
+            </details>
+          </section>
+        {% endif %}
+
+        {% if pdf_r and pdf_r.status == 'ok' %}
+          <section id="pdf" class="card">
+            <div class="sev-strip sev-strip-medium"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-file-type-pdf"></i> Análise do PDF</h2>
+            </div>
+            <p class="muted">Estrutura interna do PDF — sem executar.</p>
+            <p class="summary"><strong>{{ pdf_r._summary }}</strong></p>
+
+            {% if pdf_r.flags %}<ul>{% for f in pdf_r.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            {% if pdf_r.findings %}
+              <div class="capabilities">
+                {% for f in pdf_r.findings %}
+                  <div class="cap cap-{{ f.severity }}">
+                    <span class="cap-badge">{{ f.severity|upper }}</span>
+                    <span class="cap-label">{{ f.label }}</span>
+                    <span class="cap-count">{{ f.count }}× <code>{{ f.keyword }}</code></span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <details class="tech-details">
+              <summary><i class="ti ti-code"></i> Detalhes técnicos do PDF</summary>
+              <div class="tech-body">
+                <table class="meta">
+                  <tr><th>Versão PDF</th><td>{{ pdf_r.version }}</td></tr>
+                  <tr><th>Objetos</th><td>{{ pdf_r.num_objects }}</td></tr>
+                  <tr><th>Streams</th><td>{{ pdf_r.num_streams }}</td></tr>
+                  <tr><th>Encriptado</th><td>{{ "Sim" if pdf_r.is_encrypted else "Não" }}</td></tr>
+                </table>
+              </div>
+            </details>
+          </section>
+        {% endif %}
+
+        {% if office and office.status == 'ok' %}
+          <section id="office" class="card">
+            <div class="sev-strip sev-strip-{% if office.has_macros %}high{% else %}low{% endif %}"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-file-text"></i> Análise do documento Office</h2>
+            </div>
+            <p class="muted">Macros VBA e indicadores estáticos.</p>
+            <p class="summary"><strong>{{ office._summary }}</strong></p>
+
+            <table class="meta">
+              <tr><th>Macros presentes</th><td>{{ "Sim" if office.has_macros else "Não" }}</td></tr>
+              {% if office.has_macros %}<tr><th>Qtde de módulos VBA</th><td>{{ office.macro_count }}</td></tr>{% endif %}
+              {% if office.extension %}<tr><th>Extensão</th><td><code>{{ office.extension }}</code></td></tr>{% endif %}
+            </table>
+
+            {% if office.flags %}<ul>{% for f in office.flags %}<li class="error">{{ f }}</li>{% endfor %}</ul>{% endif %}
+
+            {% if office.findings %}
+              <div class="capabilities">
+                {% for f in office.findings %}
+                  <div class="cap cap-{{ f.severity }}">
+                    <span class="cap-badge">{{ f.severity|upper }}</span>
+                    <span class="cap-label">{{ f.label }}</span>
+                    <span class="cap-count">{{ f.count }}× <code>{{ f.keyword }}</code></span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if office.sample_code %}
+              <details class="tech-details">
+                <summary><i class="ti ti-code"></i> Amostra do código VBA (primeiros 800 chars)</summary>
+                <div class="tech-body">
+                  <pre style="white-space: pre-wrap; word-break: break-all; font-size: 0.8rem;">{{ office.sample_code }}</pre>
+                </div>
+              </details>
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {% if report.similar_files %}
+          <section id="similar" class="card">
+            <div class="sev-strip sev-strip-llm"></div>
+            <div class="card-head">
+              <h2><i class="ti ti-fingerprint"></i> Arquivos similares <span class="muted">({{ report.similar_files|length }})</span></h2>
+            </div>
+            <p class="muted">Detectados via <strong>ssdeep</strong> e <strong>TLSH</strong> (fuzzy hashing). Útil pra identificar variantes da mesma família de malware.</p>
+            <table class="similar">
+              <thead>
+                <tr><th>Arquivo</th><th>Veredito</th><th>ssdeep</th><th>TLSH</th><th>Score</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for s in report.similar_files %}
+                  <tr class="row-{{ s.verdict_level }}">
+                    <td>{{ s.name }}<br/><small class="hash">{{ s.sha256[:16] }}…</small></td>
+                    <td><span class="verdict-pill verdict-{{ s.verdict_level }}">{{ s.verdict_level }}</span></td>
+                    <td>{{ s.ssdeep_score }}</td>
+                    <td>{{ s.tlsh_score }}</td>
+                    <td><strong class="sim-score sim-{{ 'high' if s.max_score >= 70 else 'mid' if s.max_score >= 40 else 'low' }}">{{ s.max_score }}%</strong></td>
+                    <td><a href="/history/{{ s.id }}">ver <i class="ti ti-arrow-right"></i></a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+        {% endif %}
+
+        <section id="file-meta" class="card">
+          <div class="sev-strip sev-strip-info"></div>
+          <div class="card-head">
+            <h2><i class="ti ti-info-circle"></i> Metadados do arquivo</h2>
+            <div class="action-row">
+              <button class="btn-ghost" onclick="window.print()"><i class="ti ti-printer"></i> Imprimir</button>
+            </div>
+          </div>
+          <table class="meta hash-table">
+            <tr><th>Nome</th><td>{{ report.file.name }}</td></tr>
+            <tr><th>Tamanho</th><td>{{ report.file.size_human }} ({{ report.file.size_bytes }} bytes)</td></tr>
+            <tr><th>MD5</th><td>
+              <code class="hash-val">{{ report.file.md5 }}</code>
+              <button class="copy-btn" data-copy="{{ report.file.md5 }}" title="Copiar"><i class="ti ti-copy"></i></button>
+            </td></tr>
+            <tr><th>SHA1</th><td>
+              <code class="hash-val">{{ report.file.sha1 }}</code>
+              <button class="copy-btn" data-copy="{{ report.file.sha1 }}" title="Copiar"><i class="ti ti-copy"></i></button>
+            </td></tr>
+            <tr><th>SHA256</th><td>
+              <code class="hash-val">{{ report.file.sha256 }}</code>
+              <button class="copy-btn" data-copy="{{ report.file.sha256 }}" title="Copiar"><i class="ti ti-copy"></i></button>
+            </td></tr>
+            {% if report.file.ssdeep %}<tr><th>ssdeep</th><td>
+              <code class="fuzzy hash-val">{{ report.file.ssdeep }}</code>
+              <button class="copy-btn" data-copy="{{ report.file.ssdeep }}" title="Copiar"><i class="ti ti-copy"></i></button>
+            </td></tr>{% endif %}
+            {% if report.file.tlsh %}<tr><th>TLSH</th><td>
+              <code class="fuzzy hash-val">{{ report.file.tlsh }}</code>
+              <button class="copy-btn" data-copy="{{ report.file.tlsh }}" title="Copiar"><i class="ti ti-copy"></i></button>
+            </td></tr>{% endif %}
+          </table>
+        </section>
+
+        <section id="scanners" class="card">
+          <div class="sev-strip sev-strip-info"></div>
+          <div class="card-head">
+            <h2><i class="ti ti-cloud-search"></i> Scanners externos</h2>
+          </div>
+          {% for name, data in report.results.items() if name not in ('static_pe','static_pdf','static_office','static_elf','static_yara','static_disasm','static_embedded','static_macho','static_apk','static_memory') %}
+            <div class="scanner-row">
+              <div class="scanner-head">
+                <strong>{{ name }}</strong>
+                {% if data.status == 'skipped' %}<span class="tag tag-muted">ignorado</span>
+                {% elif data.status == 'error' %}<span class="tag tag-error">erro</span>
+                {% else %}<span class="tag tag-ok">ok</span>{% endif %}
+              </div>
+
+              {% if data.status == 'skipped' %}
+                <p class="muted">Ignorado: {{ data.reason }}</p>
+              {% elif data.status == 'error' %}
+                <p class="error">Erro: {{ data.error }}</p>
+              {% else %}
+                {% if data.found is defined and not data.found %}
+                  <p class="muted">{{ data.message or 'Hash não encontrado.' }}</p>
+                {% endif %}
+                <ul class="kv">
+                  {% if data.detections is defined %}<li><strong>Detecções:</strong> {{ data.detections }}</li>{% endif %}
+                  {% if data.suspicious is defined and data.suspicious %}<li><strong>Suspeitos:</strong> {{ data.suspicious }}</li>{% endif %}
+                  {% if data.engines is defined %}<li><strong>Engines:</strong> {{ data.engines }}</li>{% endif %}
+                  {% if data.verdict %}<li><strong>Veredito:</strong> {{ data.verdict }}</li>{% endif %}
+                  {% if data.threat_score is defined and data.threat_score is not none %}<li><strong>Threat score:</strong> {{ data.threat_score }}</li>{% endif %}
+                  {% if data.threat_level is defined and data.threat_level is not none %}<li><strong>Threat level:</strong> {{ data.threat_level }}</li>{% endif %}
+                  {% if data.file_type %}<li><strong>Tipo:</strong> {{ data.file_type }}</li>{% endif %}
+                  {% if data.type_description %}<li><strong>Tipo (VT):</strong> {{ data.type_description }}</li>{% endif %}
+                  {% if data.reputation is defined %}<li><strong>Reputação:</strong> {{ data.reputation }}</li>{% endif %}
+                </ul>
+                {% if data.flags %}
+                  <p><strong>Sinalizações:</strong></p>
+                  <ul>{% for f in data.flags %}<li>{{ f }}</li>{% endfor %}</ul>
+                {% endif %}
+                {% if data.permalink %}
+                  <p><a href="{{ data.permalink }}" target="_blank" rel="noopener">Ver relatório completo <i class="ti ti-external-link"></i></a></p>
+                {% endif %}
+              {% endif %}
+            </div>
+          {% endfor %}
+        </section>
+
+      </div>
+    </div>
   </main>
+
+  <script>
+    document.querySelectorAll('.copy-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var txt = btn.getAttribute('data-copy');
+        if (!txt) return;
+        navigator.clipboard.writeText(txt).then(function(){
+          var orig = btn.innerHTML;
+          btn.innerHTML = '<i class="ti ti-check"></i>';
+          btn.classList.add('copied');
+          setTimeout(function(){ btn.innerHTML = orig; btn.classList.remove('copied'); }, 1200);
+        });
+      });
+    });
+
+    var navItems = document.querySelectorAll('.sidebar .nav-item');
+    var sections = Array.from(navItems).map(function(a){
+      var id = a.getAttribute('href').slice(1);
+      return { id: id, el: document.getElementById(id), nav: a };
+    }).filter(function(s){ return s.el; });
+
+    function onScroll(){
+      var y = window.scrollY + 120;
+      var current = null;
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].el.offsetTop <= y) current = sections[i];
+      }
+      navItems.forEach(function(n){ n.classList.remove('is-active'); });
+      if (current) current.nav.classList.add('is-active');
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  </script>
 </body>
 </html>
